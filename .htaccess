@@ -1,0 +1,28 @@
+# proService - Rewrite Rules
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Não redirecionar arquivos estáticos em uploads
+    RewriteRule ^uploads/ - [L]
+    RewriteRule ^public/uploads/ - [L]
+
+    # /logs é um diretório físico, mas a rota deve ir para o router
+    RewriteRule ^logs/?$ index.php [L,QSA]
+    # Bloquear acesso direto a arquivos dentro de /logs
+    RewriteRule ^logs/ - [F,L]
+    
+    # Redirecionar para index.php se não for arquivo/diretório existente
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [L,QSA]
+</IfModule>
+
+# Proteger diretórios sensíveis (app, config, models, etc.)
+RewriteRule ^app/ - [F,L]
+RewriteRule ^database\.sql$ - [F,L]
+
+# Configurações PHP (opcional - ajustar conforme necessário)
+# php_value upload_max_filesize 5M
+# php_value post_max_size 5M
+# php_value max_execution_time 300

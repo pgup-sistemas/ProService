@@ -1,0 +1,62 @@
+# Logs
+*.log
+logs/
+app/logs/
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Diretórios de cache
+cache/
+tmp/
+temp/
+
+# Arquivos de configuração local
+config.local.php
+.env
+
+# Certificados
+certificados/
+*.cert
+*.key
+*.pem
+*.crt
+*.p12
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Uploads (não versionar arquivos de usuário)
+public/uploads/assinaturas/
+public/uploads/comprovantes_despesas/
+public/uploads/fotos/
+public/uploads/logos/
+
+# Banco de dados local (se usar SQLite)
+*.db
+*.sqlite
+*.sqlite3
+
+# Node modules (se usar frontend)
+node_modules/
+
+# Composer (se usar)
+vendor/
+
+# Arquivos de backup
+*.bak
+*.backup
+
+# Arquivos de instalação
+install.php
