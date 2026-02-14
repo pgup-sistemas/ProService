@@ -224,6 +224,15 @@ class FinanceiroController extends Controller
                 $this->redirect('financeiro/despesas/create');
             }
 
+            $empresaId = getEmpresaId();
+            if ($empresaId) {
+                $uploadCheck = podeFazerUpload($empresaId, $file['size'] ?? 0);
+                if (!$uploadCheck['permitido']) {
+                    setFlash('error', 'Limite de armazenamento atingido (' . $uploadCheck['usado_mb'] . ' MB de ' . $uploadCheck['limite_mb'] . ' MB). Faça upgrade do plano.');
+                    $this->redirect('financeiro/despesas/create');
+                }
+            }
+
             $uploadBase = defined('UPLOAD_PATH') ? UPLOAD_PATH : (PROSERVICE_ROOT . '/public/uploads/');
             $pastaUploads = rtrim($uploadBase, '/\\') . '/comprovantes_despesas';
             if (!is_dir($pastaUploads)) {

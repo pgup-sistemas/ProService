@@ -37,6 +37,7 @@ require_once PROSERVICE_ROOT . '/app/controllers/ArquivoController.php';
 
 // Carregar services
 require_once PROSERVICE_ROOT . '/app/services/EmailService.php';
+require_once PROSERVICE_ROOT . '/app/services/NotificationService.php';
 require_once PROSERVICE_ROOT . '/app/services/EfiPayService.php';
 
 // Carregar middlewares
@@ -81,6 +82,8 @@ $router->get('login', ['AuthController', 'login']);
 $router->post('login', ['AuthController', 'doLogin']);
 $router->get('register', ['AuthController', 'register']);
 $router->post('register', ['AuthController', 'doRegister']);
+$router->get('termos', ['AuthController', 'termos']);
+$router->get('privacidade', ['AuthController', 'privacidade']);
 $router->get('logout', ['AuthController', 'logout']);
 $router->get('forgot-password', ['AuthController', 'forgotPassword']);
 $router->post('forgot-password', ['AuthController', 'doForgotPassword']);

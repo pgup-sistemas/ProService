@@ -107,6 +107,22 @@ class AuthController extends Controller
     }
 
     /**
+     * Página pública - Termos de Uso
+     */
+    public function termos(): void
+    {
+        $this->view('auth/termos', []);
+    }
+
+    /**
+     * Página pública - Política de Privacidade
+     */
+    public function privacidade(): void
+    {
+        $this->view('auth/privacidade', []);
+    }
+
+    /**
      * Processa registro
      */
     public function doRegister(): void
@@ -175,6 +191,15 @@ class AuthController extends Controller
             'email' => $email,
             'telefone' => $telefone
         ]);
+
+        if ($empresaId) {
+            $this->empresaModel->update($empresaId, [
+                'aceite_termos_em' => date('Y-m-d H:i:s'),
+                'aceite_ip' => $_SERVER['REMOTE_ADDR'] ?? null,
+                'aceite_user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? substr($_SERVER['HTTP_USER_AGENT'], 0, 500) : null,
+                'aceite_versao_termo' => '1.0'
+            ]);
+        }
 
         if (!$empresaId) {
             setFlash('error', 'Erro ao criar empresa. Tente novamente.');

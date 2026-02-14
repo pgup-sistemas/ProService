@@ -17,7 +17,7 @@ class OrdemServico extends Model
     {
         $stmt = $this->db->prepare("
             SELECT os.*, 
-                   c.nome as cliente_nome, c.telefone as cliente_telefone, c.whatsapp as cliente_whatsapp,
+                   c.nome as cliente_nome, c.telefone as cliente_telefone, c.whatsapp as cliente_whatsapp, c.email as cliente_email,
                    c.cpf_cnpj as cliente_cpf_cnpj, c.endereco as cliente_endereco, c.numero as cliente_numero,
                    c.bairro as cliente_bairro, c.cidade as cliente_cidade, c.estado as cliente_estado,
                    s.nome as servico_nome, s.garantia_dias as servico_garantia_padrao,

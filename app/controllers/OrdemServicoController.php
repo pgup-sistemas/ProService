@@ -15,6 +15,7 @@ use App\Models\Receita;
 use App\Models\OsLog;
 use App\Models\Recibo;
 use App\Models\Comunicacao;
+use App\Services\NotificationService;
 
 class OrdemServicoController extends Controller
 {
@@ -271,8 +272,9 @@ class OrdemServicoController extends Controller
         if ($osId) {
             incrementarContadorOS();
             logAuditoria('OS criada', $osId);
-            // Registrar log de criação
             $this->osLogModel->registrarCriacao($osId);
+            $ns = new NotificationService(getEmpresaId());
+            $ns->notificarOsCriada($osId);
             setFlash('success', 'Ordem de Serviço criada com sucesso!');
             $this->redirect('ordens/show/' . $osId);
         } else {
@@ -312,6 +314,8 @@ class OrdemServicoController extends Controller
         
         // Buscar logs da OS para exibir na timeline
         $logs = $this->osLogModel->listarPorOS($id);
+
+        $comunicacoes = $this->comunicacaoModel->listarPorOS($id);
         
         $this->layout('main', [
             'titulo' => 'OS #' . str_pad($os['numero_os'], 4, '0', STR_PAD_LEFT),
@@ -321,7 +325,8 @@ class OrdemServicoController extends Controller
                 'fotos' => $fotos,
                 'receita' => $receita,
                 'recibo' => $recibo,
-                'logs' => $logs
+                'logs' => $logs,
+                'comunicacoes' => $comunicacoes
             ])
         ]);
     }
@@ -348,14 +353,11 @@ class OrdemServicoController extends Controller
         $statusAnterior = $os['status'] ?? 'aberta';
         
         if ($this->osModel->atualizarStatus($id, $novoStatus, getUsuarioId())) {
-            // Registrar log de mudança de status
             $this->osLogModel->registrarMudancaStatus($id, $statusAnterior, $novoStatus);
-            
-            // Se marcou como paga, gerar recibo automaticamente e atualizar receita
+
             if ($novoStatus === 'paga' && $statusAnterior !== 'paga') {
                 $osCompleto = $this->osModel->findComplete($id);
                 if ($osCompleto) {
-                    // Atualizar forma de pagamento na receita vinculada
                     $receita = $this->receitaModel->findBy('os_id', $id);
                     if ($receita && !empty($osCompleto['forma_pagamento_acordada'])) {
                         $this->receitaModel->update($receita['id'], [
@@ -364,7 +366,6 @@ class OrdemServicoController extends Controller
                             'data_recebimento' => date('Y-m-d')
                         ]);
                     }
-                    
                     $reciboId = $this->reciboModel->gerarDoOS($osCompleto);
                     if ($reciboId) {
                         $this->osLogModel->registrar($id, 'Recibo #' . $reciboId . ' gerado automaticamente', 'outro');
@@ -376,6 +377,9 @@ class OrdemServicoController extends Controller
             } else {
                 setFlash('success', 'Status atualizado para: ' . getStatusLabel($novoStatus));
             }
+
+            $ns = new NotificationService(getEmpresaId());
+            $ns->notificarMudancaStatus($id, $statusAnterior, $novoStatus);
         } else {
             setFlash('error', 'Erro ao atualizar status.');
         }
@@ -667,6 +671,15 @@ class OrdemServicoController extends Controller
             $this->redirect('ordens/show/' . $id);
         }
 
+        $empresaId = getEmpresaId();
+        if ($empresaId) {
+            $uploadCheck = podeFazerUpload($empresaId, $arquivo['size']);
+            if (!$uploadCheck['permitido']) {
+                setFlash('error', 'Limite de armazenamento atingido (' . $uploadCheck['usado_mb'] . ' MB de ' . $uploadCheck['limite_mb'] . ' MB). Faça upgrade do plano.');
+                $this->redirect('ordens/show/' . $id);
+            }
+        }
+
         // Criar pasta de uploads se não existir
         $pastaUploads = PROSERVICE_ROOT . '/public/uploads/fotos';
         if (!is_dir($pastaUploads)) {
@@ -853,6 +866,16 @@ class OrdemServicoController extends Controller
         if (!$imagem) {
             setFlash('error', 'Erro ao processar a assinatura.');
             $this->redirect('ordens/assinatura/' . $id);
+        }
+
+        $empresaId = getEmpresaId();
+        if ($empresaId) {
+            $tamanhoBytes = strlen($imagem);
+            $uploadCheck = podeFazerUpload($empresaId, $tamanhoBytes);
+            if (!$uploadCheck['permitido']) {
+                setFlash('error', 'Limite de armazenamento atingido (' . $uploadCheck['usado_mb'] . ' MB de ' . $uploadCheck['limite_mb'] . ' MB). Faça upgrade do plano.');
+                $this->redirect('ordens/assinatura/' . $id);
+            }
         }
 
         // Criar pasta de assinaturas se não existir

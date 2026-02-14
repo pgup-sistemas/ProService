@@ -374,6 +374,43 @@
             </div>
         </div>
         
+        <!-- Histórico de Comunicações -->
+        <?php if (!empty($comunicacoes)): ?>
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Comunicações</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <?php foreach ($comunicacoes as $c): 
+                        $tipoLabel = $c['tipo'] === 'whatsapp' ? 'WhatsApp' : ($c['tipo'] === 'email' ? 'E-mail' : ucfirst($c['tipo']));
+                        $icone = $c['tipo'] === 'whatsapp' ? 'bi-whatsapp text-success' : 'bi-envelope';
+                    ?>
+                    <div class="list-group-item d-flex gap-3 px-0">
+                        <div class="flex-shrink-0">
+                            <i class="bi <?= $icone ?> fs-5"></i>
+                        </div>
+                        <div class="flex-grow-1 small">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <span class="badge bg-light text-dark"><?= e($c['template_usado']) ?></span>
+                                <span class="text-muted"><?= date('d/m/Y H:i', strtotime($c['created_at'])) ?></span>
+                            </div>
+                            <p class="mb-1 text-muted"><?= $tipoLabel ?> - <?= e($c['cliente_nome'] ?? 'Cliente') ?></p>
+                            <span class="badge bg-<?= $c['status'] === 'enviado' || $c['status'] === 'disparo_auto' ? 'success' : ($c['status'] === 'falha' ? 'danger' : 'secondary') ?>"><?= $c['status'] === 'disparo_auto' ? 'Disparo automático' : e($c['status']) ?></span>
+                            <?php if (!empty($c['mensagem_enviada'])): ?>
+                            <details class="mt-1">
+                                <summary class="text-primary cursor-pointer">Ver mensagem</summary>
+                                <pre class="small bg-light p-2 rounded mt-1 mb-0" style="white-space: pre-wrap; max-height: 120px; overflow-y: auto;"><?= e($c['mensagem_enviada']) ?></pre>
+                            </details>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Histórico / Timeline -->
         <?php if (!empty($logs)): ?>
         <div class="card mb-3">

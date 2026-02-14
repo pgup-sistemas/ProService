@@ -399,6 +399,80 @@ function verificarLimiteOS(): array
 }
 
 /**
+ * Retorna uso de armazenamento em MB para a empresa
+ */
+function getUsoArmazenamentoMb(int $empresaId): float
+{
+    $db = Database::getInstance();
+    $basePath = PROSERVICE_ROOT . '/public/';
+    $totalBytes = 0;
+
+    $paths = [];
+    $stmt = $db->prepare("
+        SELECT of.arquivo FROM os_fotos of
+        INNER JOIN ordens_servico os ON of.os_id = os.id
+        WHERE os.empresa_id = ?
+    ");
+    $stmt->execute([$empresaId]);
+    while ($row = $stmt->fetch()) {
+        $paths[] = $basePath . $row['arquivo'];
+    }
+
+    $stmt = $db->prepare("SELECT arquivo FROM assinaturas WHERE empresa_id = ? AND arquivo IS NOT NULL AND arquivo != ''");
+    $stmt->execute([$empresaId]);
+    while ($row = $stmt->fetch()) {
+        $paths[] = $basePath . $row['arquivo'];
+    }
+
+    $stmt = $db->prepare("SELECT comprovante FROM despesas WHERE empresa_id = ? AND comprovante IS NOT NULL AND comprovante != ''");
+    $stmt->execute([$empresaId]);
+    while ($row = $stmt->fetch()) {
+        $p = $row['comprovante'];
+        $paths[] = $basePath . (strpos($p, 'uploads/') === 0 ? $p : 'uploads/' . $p);
+    }
+
+    $stmt = $db->prepare("SELECT logo FROM empresas WHERE id = ? AND logo IS NOT NULL AND logo != ''");
+    $stmt->execute([$empresaId]);
+    $row = $stmt->fetch();
+    if ($row) {
+        $paths[] = $basePath . $row['logo'];
+    }
+
+    foreach (array_unique($paths) as $p) {
+        if (file_exists($p) && is_file($p)) {
+            $totalBytes += filesize($p);
+        }
+    }
+
+    return round($totalBytes / (1024 * 1024), 2);
+}
+
+/**
+ * Verifica se empresa pode fazer upload (dentro do limite de armazenamento)
+ * Retorna ['permitido' => bool, 'usado_mb' => float, 'limite_mb' => int, 'restante_mb' => float]
+ */
+function podeFazerUpload(int $empresaId, int $tamanhoBytes = 0): array
+{
+    $db = Database::getInstance();
+    $stmt = $db->prepare("SELECT limite_armazenamento_mb FROM empresas WHERE id = ?");
+    $stmt->execute([$empresaId]);
+    $empresa = $stmt->fetch();
+    $limiteMb = (int) ($empresa['limite_armazenamento_mb'] ?? 0);
+    if ($limiteMb <= 0) {
+        return ['permitido' => true, 'usado_mb' => 0, 'limite_mb' => -1, 'restante_mb' => -1];
+    }
+    $usadoMb = getUsoArmazenamentoMb($empresaId);
+    $novoTamanhoMb = $tamanhoBytes / (1024 * 1024);
+    $totalAposUpload = $usadoMb + $novoTamanhoMb;
+    return [
+        'permitido' => $totalAposUpload <= $limiteMb,
+        'usado_mb' => $usadoMb,
+        'limite_mb' => $limiteMb,
+        'restante_mb' => max(0, $limiteMb - $usadoMb)
+    ];
+}
+
+/**
  * Incrementa contador de OS criadas
  */
 function incrementarContadorOS(): void

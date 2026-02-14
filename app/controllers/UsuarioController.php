@@ -80,6 +80,17 @@ class UsuarioController extends Controller
         if (strlen($senha) < 8) $errors[] = 'Senha deve ter no mínimo 8 caracteres.';
         if (!in_array($perfil, ['admin', 'tecnico'])) $errors[] = 'Perfil inválido.';
 
+        if ($perfil === 'tecnico') {
+            $empresa = getEmpresaDados();
+            $limite = (int) ($empresa['limite_tecnicos'] ?? 0);
+            if ($limite !== -1) {
+                $qtde = $this->usuarioModel->contarTecnicos();
+                if ($qtde >= $limite) {
+                    $errors[] = 'Limite de técnicos do seu plano atingido. Faça upgrade para adicionar mais.';
+                }
+            }
+        }
+
         if ($this->usuarioModel->findByEmail($email)) {
             $errors[] = 'Este e-mail já está cadastrado nesta empresa.';
         }

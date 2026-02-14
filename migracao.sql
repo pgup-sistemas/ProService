@@ -88,6 +88,20 @@ CREATE TABLE IF NOT EXISTS assinaturas (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- --------------------------------------------
+-- 6. ADICIONAR COLUNA ONBOARDING_ETAPA (persistir progresso do wizard)
+-- --------------------------------------------
+ALTER TABLE empresas 
+ADD COLUMN IF NOT EXISTS onboarding_etapa TINYINT UNSIGNED DEFAULT 1;
+
+-- --------------------------------------------
+-- 7. ADICIONAR COLUNAS ACEITE LGPD (evidência do consentimento)
+-- --------------------------------------------
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS aceite_termos_em DATETIME NULL;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS aceite_ip VARCHAR(45) NULL;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS aceite_user_agent VARCHAR(500) NULL;
+ALTER TABLE empresas ADD COLUMN IF NOT EXISTS aceite_versao_termo VARCHAR(20) DEFAULT '1.0';
+
 -- ============================================
 -- MIGRAÇÃO CONCLUÍDA
 -- ============================================

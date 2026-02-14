@@ -125,25 +125,30 @@ class DashboardController extends Controller
     }
 
     /**
-     * Calcula progresso do onboarding
+     * Calcula progresso do onboarding (usa max entre etapa calculada e etapa salva)
      */
     private function getProgressoOnboarding(): array
     {
         $empresaId = getEmpresaId();
         $empresa = $this->empresaModel->findById($empresaId);
         
-        // Verificar cada etapa
         $logo = !empty($empresa['logo']);
         $servico = $this->servicoModel->count(['empresa_id' => $empresaId]) > 0;
         $cliente = $this->clienteModel->count(['empresa_id' => $empresaId]) > 0;
         $os = $this->osModel->count(['empresa_id' => $empresaId]) > 0;
         
-        // Determinar etapa atual
-        $etapa = 1;
-        if ($logo) $etapa = 2;
-        if ($logo && $servico) $etapa = 3;
-        if ($logo && $servico && $cliente) $etapa = 4;
-        if ($logo && $servico && $cliente && $os) $etapa = 5;
+        $etapaCalculada = 1;
+        if ($logo) $etapaCalculada = 2;
+        if ($logo && $servico) $etapaCalculada = 3;
+        if ($logo && $servico && $cliente) $etapaCalculada = 4;
+        if ($logo && $servico && $cliente && $os) $etapaCalculada = 5;
+
+        $etapaSalva = (int) ($empresa['onboarding_etapa'] ?? 1);
+        $etapa = max($etapaCalculada, $etapaSalva);
+
+        if ($etapa > $etapaSalva) {
+            $this->empresaModel->update($empresaId, ['onboarding_etapa' => $etapa]);
+        }
         
         return [
             'logo' => $logo,
@@ -213,15 +218,17 @@ class DashboardController extends Controller
     }
 
     /**
-     * API: Pular etapa do onboarding
+     * API: Pular etapa do onboarding (persiste etapa_atual na empresa)
      */
     public function onboardingPular(): void
     {
-        // Avança para próxima etapa sem completar a atual
+        $empresaId = getEmpresaId();
         $progresso = $this->getProgressoOnboarding();
-        $etapaAtual = min($progresso['etapa_atual'] + 1, 5);
+        $etapaNova = min($progresso['etapa_atual'] + 1, 5);
+
+        $this->empresaModel->update($empresaId, ['onboarding_etapa' => $etapaNova]);
         
-        $this->jsonResponse(['success' => true, 'etapa' => $etapaAtual]);
+        $this->jsonResponse(['success' => true, 'etapa' => $etapaNova]);
     }
 
     /**

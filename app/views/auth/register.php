@@ -147,7 +147,7 @@
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" name="aceite" id="aceite" required>
                     <label class="form-check-label" for="aceite">
-                        Li e aceito os <a href="#" target="_blank">Termos de Uso</a> e <a href="#" target="_blank">Política de Privacidade</a>
+                        Li e aceito os <a href="<?= url('termos') ?>" target="_blank">Termos de Uso</a> e <a href="<?= url('privacidade') ?>" target="_blank">Política de Privacidade</a>
                     </label>
                 </div>
             </div>

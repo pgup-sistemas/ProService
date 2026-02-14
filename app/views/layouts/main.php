@@ -382,6 +382,22 @@
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 <?php endif; ?>
+                <?php
+                $limiteOS = getEmpresaId() ? verificarLimiteOS() : null;
+                $mostrarAlerta80 = $limiteOS && $limiteOS['permitido'] && isset($limiteOS['limite']) && (int) $limiteOS['limite'] > 0 && $limiteOS['limite'] !== -1;
+                if ($mostrarAlerta80 && (($limiteOS['usado'] ?? 0) / $limiteOS['limite']) >= 0.8):
+                ?>
+                <div class="alert alert-warning alert-dismissible fade show d-flex align-items-center justify-content-between" role="alert">
+                    <div>
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>Limite de OS próximo:</strong> Você usou <?= $limiteOS['usado'] ?> de <?= $limiteOS['limite'] ?> OS neste mês (<?= round((($limiteOS['usado'] ?? 0) / $limiteOS['limite']) * 100) ?>%).
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="<?= url('assinaturas') ?>" class="btn btn-warning btn-sm">Fazer Upgrade</a>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <?= $content ?>
             </main>
         </div>
