@@ -65,20 +65,22 @@ foreach ($ordensPorDia as $osDia) {
             
             <div class="row g-3 mb-3">
                 <div class="col-6 col-md-3">
-                    <select name="status" class="form-select border-0 bg-light" onchange="this.form.submit()">
-                        <option value="">📊 Todos Status</option>
-                        <option value="aberta" <?= ($filtros['status'] ?? '') === 'aberta' ? 'selected' : '' ?>>🔵 Aberta</option>
-                        <option value="em_orcamento" <?= ($filtros['status'] ?? '') === 'em_orcamento' ? 'selected' : '' ?>>💡 Em Orçamento</option>
-                        <option value="aprovada" <?= ($filtros['status'] ?? '') === 'aprovada' ? 'selected' : '' ?>>🟡 Aprovada</option>
-                        <option value="em_execucao" <?= ($filtros['status'] ?? '') === 'em_execucao' ? 'selected' : '' ?>>🔵 Em Execução</option>
-                        <option value="pausada" <?= ($filtros['status'] ?? '') === 'pausada' ? 'selected' : '' ?>>⏸️ Pausada</option>
-                        <option value="finalizada" <?= ($filtros['status'] ?? '') === 'finalizada' ? 'selected' : '' ?>>✅ Finalizada</option>
-                        <option value="paga" <?= ($filtros['status'] ?? '') === 'paga' ? 'selected' : '' ?>>💰 Paga</option>
+                    <label class="form-label small text-muted mb-1"><i class="bi bi-pie-chart-fill me-1"></i> Status</label>
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos Status</option>
+                        <option value="aberta" <?= ($filtros['status'] ?? '') === 'aberta' ? 'selected' : '' ?>>Aberta</option>
+                        <option value="em_orcamento" <?= ($filtros['status'] ?? '') === 'em_orcamento' ? 'selected' : '' ?>>Em Orçamento</option>
+                        <option value="aprovada" <?= ($filtros['status'] ?? '') === 'aprovada' ? 'selected' : '' ?>>Aprovada</option>
+                        <option value="em_execucao" <?= ($filtros['status'] ?? '') === 'em_execucao' ? 'selected' : '' ?>>Em Execução</option>
+                        <option value="pausada" <?= ($filtros['status'] ?? '') === 'pausada' ? 'selected' : '' ?>>Pausada</option>
+                        <option value="finalizada" <?= ($filtros['status'] ?? '') === 'finalizada' ? 'selected' : '' ?>>Finalizada</option>
+                        <option value="paga" <?= ($filtros['status'] ?? '') === 'paga' ? 'selected' : '' ?>>Paga</option>
                     </select>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select name="cliente_id" class="form-select border-0 bg-light" onchange="this.form.submit()">
-                        <option value=""><i class="bi bi-person"></i> Todos Clientes</option>
+                    <label class="form-label small text-muted mb-1"><i class="bi bi-people-fill me-1"></i> Cliente</label>
+                    <select name="cliente_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos Clientes</option>
                         <?php foreach ($clientes as $cliente): ?>
                         <option value="<?= $cliente['id'] ?>" <?= ($filtros['cliente_id'] ?? '') == $cliente['id'] ? 'selected' : '' ?>>
                             <?= e(substr($cliente['nome'], 0, 20)) ?>
@@ -87,8 +89,9 @@ foreach ($ordensPorDia as $osDia) {
                     </select>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select name="tecnico_id" class="form-select border-0 bg-light" onchange="this.form.submit()">
-                        <option value=""><i class="bi bi-tools"></i> Todos Técnicos</option>
+                    <label class="form-label small text-muted mb-1"><i class="bi bi-person-badge-fill me-1"></i> Técnico</label>
+                    <select name="tecnico_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">Todos Técnicos</option>
                         <?php foreach ($tecnicos as $tecnico): ?>
                         <option value="<?= $tecnico['id'] ?>" <?= ($filtros['tecnico_id'] ?? '') == $tecnico['id'] ? 'selected' : '' ?>>
                             <?= e($tecnico['nome']) ?>
@@ -97,25 +100,26 @@ foreach ($ordensPorDia as $osDia) {
                     </select>
                 </div>
                 <div class="col-6 col-md-3">
-                    <select name="tipo_data" class="form-select border-0 bg-light" onchange="this.form.submit()">
-                        <option value="previsao_entrega" <?= ($filtros['tipo_data'] ?? '') === 'previsao_entrega' ? 'selected' : '' ?>><i class="bi bi-calendar-event"></i> Por Previsão</option>
-                        <option value="data_entrada" <?= ($filtros['tipo_data'] ?? '') === 'data_entrada' ? 'selected' : '' ?>><i class="bi bi-calendar-check"></i> Por Entrada</option>
+                    <label class="form-label small text-muted mb-1"><i class="bi bi-calendar3 me-1"></i> Período</label>
+                    <select name="tipo_data" class="form-select" onchange="this.form.submit()">
+                        <option value="previsao_entrega" <?= ($filtros['tipo_data'] ?? '') === 'previsao_entrega' ? 'selected' : '' ?>>Por Previsão</option>
+                        <option value="data_entrada" <?= ($filtros['tipo_data'] ?? '') === 'data_entrada' ? 'selected' : '' ?>>Por Entrada</option>
                     </select>
                 </div>
             </div>
             
-            <div class="row g-3 align-items-center">
+            <div class="row g-3 align-items-end">
                 <div class="col-md-10">
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="busca" class="form-control border-0 bg-light" 
-                               value="<?= $filtros['busca'] ?? '' ?>" placeholder="Buscar OS, cliente ou serviço...">
-                    </div>
+                    <label class="form-label small text-muted mb-1"><i class="bi bi-search me-1"></i> Buscar</label>
+                    <input type="text" name="busca" class="form-control" 
+                           value="<?= $filtros['busca'] ?? '' ?>" placeholder="OS, cliente ou serviço...">
                 </div>
                 <div class="col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary flex-fill"><i class="bi bi-search"></i></button>
+                    <button type="submit" class="btn btn-primary flex-fill">
+                        <i class="bi bi-search me-1"></i> Buscar
+                    </button>
                     <?php if (array_filter($filtros)): ?>
-                    <a href="<?= url('ordens/calendario?mes=' . $mes . '&ano=' . $ano) ?>" class="btn btn-outline-secondary" title="Limpar">
+                    <a href="<?= url('ordens/calendario?mes=' . $mes . '&ano=' . $ano) ?>" class="btn btn-outline-secondary" title="Limpar filtros">
                         <i class="bi bi-x-lg"></i>
                     </a>
                     <?php endif; ?>
@@ -126,10 +130,10 @@ foreach ($ordensPorDia as $osDia) {
     
     <!-- Resumo -->
     <div class="card-footer bg-light py-2">
-        <small class="text-muted">
-            <span class="badge bg-primary"><?= $totalOS ?></span> OS encontradas
+        <small class="text-muted d-flex align-items-center gap-2">
+            <span class="badge bg-primary"><i class="bi bi-clipboard-data me-1"></i><?= $totalOS ?> OS</span>
             <?php if (array_filter($filtros)): ?>
-                <span class="ms-2"><i class="bi bi-funnel-fill text-primary"></i> Filtros ativos</span>
+                <span><i class="bi bi-funnel-fill text-primary me-1"></i>Filtros ativos</span>
             <?php endif; ?>
         </small>
     </div>
@@ -214,14 +218,15 @@ foreach ($ordensPorDia as $osDia) {
 <!-- Legenda -->
 <div class="card mt-3">
     <div class="card-body py-3">
-        <div class="d-flex flex-wrap gap-2 justify-content-center">
-            <span class="badge bg-secondary">Aberta</span>
-            <span class="badge bg-info">Em Orçamento</span>
-            <span class="badge bg-warning">Aprovada</span>
-            <span class="badge bg-primary">Em Execução</span>
-            <span class="badge bg-dark">Pausada</span>
-            <span class="badge bg-success">Finalizada/Paga</span>
-            <span class="badge bg-danger">Cancelada</span>
+        <div class="d-flex flex-wrap gap-2 justify-content-center align-items-center">
+            <span class="badge bg-secondary"><i class="bi bi-folder me-1"></i>Aberta</span>
+            <span class="badge bg-info"><i class="bi bi-calculator me-1"></i>Em Orçamento</span>
+            <span class="badge bg-warning"><i class="bi bi-check2-circle me-1"></i>Aprovada</span>
+            <span class="badge bg-primary"><i class="bi bi-gear-wide-connected me-1"></i>Em Execução</span>
+            <span class="badge bg-dark"><i class="bi bi-pause-circle me-1"></i>Pausada</span>
+            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Finalizada</span>
+            <span class="badge bg-success"><i class="bi bi-cash-coin me-1"></i>Paga</span>
+            <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Cancelada</span>
         </div>
     </div>
 </div>
@@ -267,7 +272,7 @@ foreach ($ordensPorDia as $osDia) {
                             <td class="py-3"><?= e(substr($os['tecnico_nome'] ?? 'N/A', 0, 20)) ?></td>
                             <td class="py-3">
                                 <span class="badge bg-<?= getStatusColor($os['status']) ?>">
-                                    <?= getStatusLabel($os['status']) ?>
+                                    <i class="bi <?= getStatusIcon($os['status']) ?> me-1"></i><?= getStatusLabel($os['status']) ?>
                                 </span>
                             </td>
                         </tr>

@@ -1,18 +1,15 @@
--- ============================================
--- proService SaaS - Script SQL Inicial
--- ============================================
--- Stack: PHP 8+, MySQL 8+, Bootstrap 5, PDO
--- Modelo: Multiempresa com isolamento por empresa_id
--- ============================================
+-- ============================================================================
+-- 🚀 PROSERVICE SaaS - BANCO DE DADOS (VERSÃO FINAL)
+-- ============================================================================
+-- Data: 14/02/2026
+-- Stack: PHP 8+, MySQL 8+
+-- Nota: Removidos DEFAULT de datas (incompatível com MySQL < 8.0)
+-- ============================================================================
 
--- Criar banco de dados
 CREATE DATABASE IF NOT EXISTS proservice CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE proservice;
 
--- ============================================
--- 1. TABELA: empresas
--- ============================================
-CREATE TABLE empresas (
+CREATE TABLE IF NOT EXISTS empresas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome_fantasia VARCHAR(255) NOT NULL,
     razao_social VARCHAR(255),
@@ -28,35 +25,41 @@ CREATE TABLE empresas (
     cidade VARCHAR(100),
     estado CHAR(2),
     logo VARCHAR(255),
-    -- Configurações de plano
-    plano ENUM('trial', 'basico', 'profissional') DEFAULT 'trial',
+    plano ENUM('trial', 'basico', 'starter', 'profissional', 'pro') DEFAULT 'trial',
     data_inicio_plano DATE,
     data_fim_trial DATE,
     limite_os_mes INT DEFAULT 20,
     limite_tecnicos INT DEFAULT 1,
     limite_armazenamento_mb INT DEFAULT 100,
     os_criadas_mes_atual INT DEFAULT 0,
-    mes_referencia_os VARCHAR(7), -- Formato: YYYY-MM
+    mes_referencia_os VARCHAR(7),
+    assinatura_id BIGINT NULL,
+    assinatura_status ENUM('inactive', 'pending', 'active', 'suspended', 'canceled') DEFAULT 'inactive',
+    cpf_responsavel VARCHAR(20),
+    responsavel_nome VARCHAR(255),
     status ENUM('ativo', 'bloqueado', 'cancelado') DEFAULT 'ativo',
-    -- Dados bancários (para recibos)
     banco_nome VARCHAR(100),
     banco_agencia VARCHAR(20),
     banco_conta VARCHAR(20),
     banco_tipo ENUM('corrente', 'poupanca'),
     chave_pix VARCHAR(100),
-    -- Configurações
     termos_contrato TEXT,
+    onboarding_completo TINYINT(1) DEFAULT 0,
+    onboarding_etapa TINYINT UNSIGNED DEFAULT 1,
+    aceite_termos_em DATETIME NULL,
+    aceite_ip VARCHAR(45) NULL,
+    aceite_user_agent VARCHAR(500) NULL,
+    aceite_versao_termo VARCHAR(20) DEFAULT '1.0',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_plano (plano),
     INDEX idx_status (status),
-    INDEX idx_cnpj (cnpj_cpf)
+    INDEX idx_cnpj (cnpj_cpf),
+    INDEX idx_assinatura_id (assinatura_id),
+    INDEX idx_assinatura_status (assinatura_status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 2. TABELA: usuarios
--- ============================================
-CREATE TABLE usuarios (
+CREATE TABLE IF NOT EXISTS usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     nome VARCHAR(255) NOT NULL,
@@ -67,7 +70,6 @@ CREATE TABLE usuarios (
     ativo TINYINT(1) DEFAULT 1,
     assinatura_digital VARCHAR(255),
     ultimo_acesso DATETIME,
-    -- Recuperação de senha
     reset_token VARCHAR(64) DEFAULT NULL,
     reset_token_expira DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -75,14 +77,10 @@ CREATE TABLE usuarios (
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     UNIQUE KEY uk_empresa_email (empresa_id, email),
     INDEX idx_empresa_perfil (empresa_id, perfil),
-    INDEX idx_ativo (ativo),
-    INDEX idx_reset_token (reset_token)
+    INDEX idx_ativo (ativo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 3. TABELA: clientes
--- ============================================
-CREATE TABLE clientes (
+CREATE TABLE IF NOT EXISTS clientes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     nome VARCHAR(255) NOT NULL,
@@ -105,15 +103,10 @@ CREATE TABLE clientes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     INDEX idx_empresa_nome (empresa_id, nome),
-    INDEX idx_empresa_telefone (empresa_id, telefone),
-    INDEX idx_empresa_cpf (empresa_id, cpf_cnpj),
     INDEX idx_ativo (ativo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 4. TABELA: servicos
--- ============================================
-CREATE TABLE servicos (
+CREATE TABLE IF NOT EXISTS servicos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     nome VARCHAR(255) NOT NULL,
@@ -127,14 +120,10 @@ CREATE TABLE servicos (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     INDEX idx_empresa_nome (empresa_id, nome),
-    INDEX idx_empresa_categoria (empresa_id, categoria),
     INDEX idx_ativo (ativo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 5. TABELA: produtos
--- ============================================
-CREATE TABLE produtos (
+CREATE TABLE IF NOT EXISTS produtos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     nome VARCHAR(255) NOT NULL,
@@ -152,15 +141,10 @@ CREATE TABLE produtos (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     INDEX idx_empresa_nome (empresa_id, nome),
-    INDEX idx_empresa_codigo (empresa_id, codigo_sku),
-    INDEX idx_empresa_categoria (empresa_id, categoria),
     INDEX idx_ativo (ativo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 6. TABELA: ordens_servico
--- ============================================
-CREATE TABLE ordens_servico (
+CREATE TABLE IF NOT EXISTS ordens_servico (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     numero_os INT NOT NULL,
@@ -169,10 +153,9 @@ CREATE TABLE ordens_servico (
     servico_id INT,
     descricao TEXT,
     prioridade ENUM('urgente', 'alta', 'normal', 'baixa') DEFAULT 'normal',
-    data_entrada DATE DEFAULT CURRENT_DATE,
+    data_entrada DATE,
     previsao_entrega DATE,
     data_finalizacao DATE,
-    -- Valores
     valor_servico DECIMAL(10, 2) DEFAULT 0,
     taxas_adicionais DECIMAL(10, 2) DEFAULT 0,
     desconto DECIMAL(10, 2) DEFAULT 0,
@@ -180,15 +163,11 @@ CREATE TABLE ordens_servico (
     custo_produtos DECIMAL(10, 2) DEFAULT 0,
     lucro_real DECIMAL(10, 2) DEFAULT 0,
     forma_pagamento_acordada ENUM('dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia'),
-    -- Status
     status ENUM('aberta', 'em_orcamento', 'aprovada', 'em_execucao', 'pausada', 'finalizada', 'paga', 'cancelada') DEFAULT 'aberta',
-    -- Garantia e observações
     garantia_dias INT DEFAULT 0,
     observacoes_internas TEXT,
     observacoes_cliente TEXT,
-    -- Link público
     token_publico VARCHAR(64) UNIQUE,
-    -- Assinaturas
     assinatura_cliente VARCHAR(255),
     assinatura_data DATETIME,
     assinatura_tecnico VARCHAR(255),
@@ -199,17 +178,10 @@ CREATE TABLE ordens_servico (
     FOREIGN KEY (tecnico_id) REFERENCES usuarios(id),
     FOREIGN KEY (servico_id) REFERENCES servicos(id),
     UNIQUE KEY uk_empresa_numero_os (empresa_id, numero_os),
-    INDEX idx_empresa_status (empresa_id, status),
-    INDEX idx_empresa_cliente (empresa_id, cliente_id),
-    INDEX idx_empresa_tecnico (empresa_id, tecnico_id),
-    INDEX idx_token_publico (token_publico),
-    INDEX idx_data_entrada (data_entrada)
+    INDEX idx_empresa_status (empresa_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 7. TABELA: os_produtos (produtos usados na OS)
--- ============================================
-CREATE TABLE os_produtos (
+CREATE TABLE IF NOT EXISTS os_produtos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     os_id INT NOT NULL,
     produto_id INT NOT NULL,
@@ -219,46 +191,36 @@ CREATE TABLE os_produtos (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (os_id) REFERENCES ordens_servico(id) ON DELETE CASCADE,
     FOREIGN KEY (produto_id) REFERENCES produtos(id),
-    INDEX idx_os (os_id),
-    INDEX idx_produto (produto_id)
+    INDEX idx_os (os_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 8. TABELA: os_fotos
--- ============================================
-CREATE TABLE os_fotos (
+CREATE TABLE IF NOT EXISTS os_fotos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     os_id INT NOT NULL,
     arquivo VARCHAR(255) NOT NULL,
     tipo ENUM('antes', 'durante', 'depois') DEFAULT 'antes',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (os_id) REFERENCES ordens_servico(id) ON DELETE CASCADE,
-    INDEX idx_os (os_id),
-    INDEX idx_tipo (tipo)
+    INDEX idx_os (os_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 9. TABELA: os_logs (histórico de alterações)
--- ============================================
-CREATE TABLE os_logs (
+CREATE TABLE IF NOT EXISTS os_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     os_id INT NOT NULL,
-    usuario_id INT,
-    acao VARCHAR(255) NOT NULL,
-    dados_anteriores JSON,
-    dados_novos JSON,
-    ip_address VARCHAR(45),
+    usuario_id INT NOT NULL,
+    acao VARCHAR(100) NOT NULL,
+    tipo_acao ENUM('status', 'valor', 'produto', 'dados', 'assinatura', 'visualizacao', 'outro') DEFAULT 'outro',
+    dados_anteriores JSON DEFAULT NULL,
+    dados_novos JSON DEFAULT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    user_agent TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (os_id) REFERENCES ordens_servico(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-    INDEX idx_os (os_id),
-    INDEX idx_created (created_at)
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    INDEX idx_os_id (os_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 10. TABELA: receitas
--- ============================================
-CREATE TABLE receitas (
+CREATE TABLE IF NOT EXISTS receitas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     os_id INT,
@@ -272,15 +234,10 @@ CREATE TABLE receitas (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     FOREIGN KEY (os_id) REFERENCES ordens_servico(id) ON DELETE SET NULL,
-    INDEX idx_empresa_status (empresa_id, status),
-    INDEX idx_empresa_data (empresa_id, data_recebimento),
-    INDEX idx_os (os_id)
+    INDEX idx_empresa_status (empresa_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 11. TABELA: despesas
--- ============================================
-CREATE TABLE despesas (
+CREATE TABLE IF NOT EXISTS despesas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     descricao VARCHAR(255) NOT NULL,
@@ -291,7 +248,6 @@ CREATE TABLE despesas (
     status ENUM('pendente', 'pago', 'cancelado') DEFAULT 'pago',
     comprovante VARCHAR(255) NULL,
     observacoes TEXT,
-    -- Campos para despesas recorrentes
     recorrente TINYINT(1) DEFAULT 0,
     frequencia ENUM('mensal', 'semanal', 'anual') NULL,
     despesa_pai_id INT NULL,
@@ -300,17 +256,10 @@ CREATE TABLE despesas (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     FOREIGN KEY (despesa_pai_id) REFERENCES despesas(id) ON DELETE SET NULL,
-    INDEX idx_empresa_categoria (empresa_id, categoria),
-    INDEX idx_empresa_data (empresa_id, data_despesa),
-    INDEX idx_status (status),
-    INDEX idx_recorrente (recorrente),
-    INDEX idx_proximo_vencimento (data_proximo_vencimento)
+    INDEX idx_empresa_categoria (empresa_id, categoria)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 12. TABELA: movimentacao_estoque
--- ============================================
-CREATE TABLE movimentacao_estoque (
+CREATE TABLE IF NOT EXISTS movimentacao_estoque (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     produto_id INT NOT NULL,
@@ -325,15 +274,10 @@ CREATE TABLE movimentacao_estoque (
     FOREIGN KEY (produto_id) REFERENCES produtos(id),
     FOREIGN KEY (os_id) REFERENCES ordens_servico(id) ON DELETE SET NULL,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-    INDEX idx_empresa_produto (empresa_id, produto_id),
-    INDEX idx_tipo (tipo),
-    INDEX idx_created (created_at)
+    INDEX idx_empresa_produto (empresa_id, produto_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 13. TABELA: recibos
--- ============================================
-CREATE TABLE recibos (
+CREATE TABLE IF NOT EXISTS recibos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     numero_recibo INT NOT NULL,
@@ -341,21 +285,17 @@ CREATE TABLE recibos (
     cliente_id INT NOT NULL,
     valor DECIMAL(10, 2) NOT NULL,
     valor_extenso VARCHAR(255),
-    data_emissao DATE DEFAULT CURRENT_DATE,
+    data_emissao DATE,
     forma_pagamento ENUM('dinheiro', 'pix', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia'),
     observacoes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     FOREIGN KEY (os_id) REFERENCES ordens_servico(id),
     FOREIGN KEY (cliente_id) REFERENCES clientes(id),
-    UNIQUE KEY uk_empresa_numero_recibo (empresa_id, numero_recibo),
-    INDEX idx_os (os_id)
+    UNIQUE KEY uk_empresa_numero_recibo (empresa_id, numero_recibo)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 14. TABELA: configuracoes_empresa
--- ============================================
-CREATE TABLE configuracoes_empresa (
+CREATE TABLE IF NOT EXISTS configuracoes_empresa (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL UNIQUE,
     cor_primaria VARCHAR(7) DEFAULT '#1e40af',
@@ -371,10 +311,7 @@ CREATE TABLE configuracoes_empresa (
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 15. TABELA: csrf_tokens
--- ============================================
-CREATE TABLE csrf_tokens (
+CREATE TABLE IF NOT EXISTS csrf_tokens (
     id INT AUTO_INCREMENT PRIMARY KEY,
     token VARCHAR(64) NOT NULL,
     session_id VARCHAR(255) NOT NULL,
@@ -382,170 +319,10 @@ CREATE TABLE csrf_tokens (
     expires_at TIMESTAMP NOT NULL,
     used TINYINT(1) DEFAULT 0,
     INDEX idx_token (token),
-    INDEX idx_session (session_id),
     INDEX idx_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 16. TABELA: os_logs (Histórico de Alterações da OS)
--- ============================================
-CREATE TABLE os_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    os_id INT NOT NULL,
-    usuario_id INT NOT NULL,
-    acao VARCHAR(100) NOT NULL,
-    tipo_acao ENUM('status', 'valor', 'produto', 'dados', 'assinatura', 'visualizacao', 'outro') DEFAULT 'outro',
-    dados_anteriores JSON DEFAULT NULL,
-    dados_novos JSON DEFAULT NULL,
-    ip_address VARCHAR(45) DEFAULT NULL,
-    user_agent TEXT DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (os_id) REFERENCES ordens_servico(id) ON DELETE CASCADE,
-    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    INDEX idx_os_id (os_id),
-    INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ============================================
--- FUNÇÕES E TRIGGERS
--- ============================================
-
--- Trigger para gerar número de OS sequencial por empresa
-DELIMITER //
-
-CREATE TRIGGER trg_gerar_numero_os BEFORE INSERT ON ordens_servico
-FOR EACH ROW
-BEGIN
-    DECLARE max_numero INT;
-    
-    IF NEW.numero_os IS NULL THEN
-        SELECT COALESCE(MAX(numero_os), 0) + 1 INTO max_numero
-        FROM ordens_servico
-        WHERE empresa_id = NEW.empresa_id;
-        
-        SET NEW.numero_os = max_numero;
-    END IF;
-    
-    -- Gerar token público único
-    IF NEW.token_publico IS NULL THEN
-        SET NEW.token_publico = MD5(CONCAT(NEW.empresa_id, '-', UNIX_TIMESTAMP(), '-', RAND()));
-    END IF;
-END//
-
--- Trigger para baixa automática no estoque
-CREATE TRIGGER trg_baixa_estoque AFTER INSERT ON os_produtos
-FOR EACH ROW
-BEGIN
-    -- Atualizar quantidade em estoque
-    UPDATE produtos
-    SET quantidade_estoque = quantidade_estoque - NEW.quantidade,
-        updated_at = NOW()
-    WHERE id = NEW.produto_id;
-    
-    -- Registrar movimentação
-    INSERT INTO movimentacao_estoque (empresa_id, produto_id, tipo, quantidade, motivo, os_id)
-    SELECT p.empresa_id, NEW.produto_id, 'saida', NEW.quantidade, 'Saída via OS', NEW.os_id
-    FROM produtos p
-    WHERE p.id = NEW.produto_id;
-END//
-
--- Trigger para estorno no estoque ao remover produto da OS
-CREATE TRIGGER trg_estorno_estoque AFTER DELETE ON os_produtos
-FOR EACH ROW
-BEGIN
-    -- Atualizar quantidade em estoque
-    UPDATE produtos
-    SET quantidade_estoque = quantidade_estoque + OLD.quantidade,
-        updated_at = NOW()
-    WHERE id = OLD.produto_id;
-    
-    -- Registrar movimentação
-    INSERT INTO movimentacao_estoque (empresa_id, produto_id, tipo, quantidade, motivo, os_id)
-    SELECT p.empresa_id, OLD.produto_id, 'entrada', OLD.quantidade, 'Estorno - remoção da OS', OLD.os_id
-    FROM produtos p
-    WHERE p.id = OLD.produto_id;
-END//
-
--- Trigger para gerar receita automaticamente ao criar OS
-CREATE TRIGGER trg_gerar_receita_os AFTER INSERT ON ordens_servico
-FOR EACH ROW
-BEGIN
-    IF NEW.valor_total > 0 THEN
-        INSERT INTO receitas (empresa_id, os_id, descricao, valor, forma_pagamento, status, created_at)
-        VALUES (NEW.empresa_id, NEW.id, CONCAT('OS #', NEW.numero_os), NEW.valor_total, 'nao_informado', 'pendente', NOW());
-    END IF;
-END//
-
--- Trigger para gerar número de recibo sequencial
-CREATE TRIGGER trg_gerar_numero_recibo BEFORE INSERT ON recibos
-FOR EACH ROW
-BEGIN
-    DECLARE max_numero INT;
-    
-    IF NEW.numero_recibo IS NULL THEN
-        SELECT COALESCE(MAX(numero_recibo), 0) + 1 INTO max_numero
-        FROM recibos
-        WHERE empresa_id = NEW.empresa_id;
-        
-        SET NEW.numero_recibo = max_numero;
-    END IF;
-END//
-
--- Trigger para atualizar contador de OS mensal da empresa
-CREATE TRIGGER trg_atualizar_contador_os AFTER INSERT ON ordens_servico
-FOR EACH ROW
-BEGIN
-    DECLARE mes_atual VARCHAR(7);
-    SET mes_atual = DATE_FORMAT(NEW.created_at, '%Y-%m');
-    
-    -- Atualiza o contador de OS do mês atual na empresa
-    UPDATE empresas
-    SET os_criadas_mes_atual = (
-        SELECT COUNT(*) 
-        FROM ordens_servico 
-        WHERE empresa_id = NEW.empresa_id 
-        AND DATE_FORMAT(created_at, '%Y-%m') = mes_atual
-    )
-    WHERE id = NEW.empresa_id;
-END//
-
--- Trigger para resetar contador mensal (executa no primeiro dia do mês)
--- Nota: Este trigger é simbólico, o reset real deve ser feito por cron job
-CREATE TRIGGER trg_verificar_reset_contador BEFORE INSERT ON ordens_servico
-FOR EACH ROW
-BEGIN
-    DECLARE ultimo_mes VARCHAR(7);
-    DECLARE mes_atual VARCHAR(7);
-    
-    SET mes_atual = DATE_FORMAT(NOW(), '%Y-%m');
-    
-    -- Verifica se há OS do mês anterior e reseta o contador se necessário
-    SELECT DATE_FORMAT(MAX(created_at), '%Y-%m') INTO ultimo_mes
-    FROM ordens_servico
-    WHERE empresa_id = NEW.empresa_id;
-    
-    IF ultimo_mes IS NOT NULL AND ultimo_mes != mes_atual THEN
-        -- Reset do contador (primeira OS do novo mês)
-        UPDATE empresas
-        SET os_criadas_mes_atual = 0
-        WHERE id = NEW.empresa_id;
-    END IF;
-END//
-
-DELIMITER ;
-
--- ============================================
--- DADOS INICIAIS DE EXEMPLO
--- ============================================
-
--- Inserir uma empresa de teste (será criada via registro na prática)
--- INSERT INTO empresas (nome_fantasia, razao_social, cnpj_cpf, email, telefone, plano, data_fim_trial)
--- VALUES ('Empresa Teste', 'Empresa Teste LTDA', '00.000.000/0000-00', 'teste@empresa.com', '(11) 99999-9999', 'trial', DATE_ADD(CURDATE(), INTERVAL 15 DAY));
-
--- ============================================
--- 17. TABELA: comunicacoes (Histórico de comunicações)
--- ============================================
-CREATE TABLE comunicacoes (
+CREATE TABLE IF NOT EXISTS comunicacoes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     os_id INT NOT NULL,
@@ -555,17 +332,13 @@ CREATE TABLE comunicacoes (
     mensagem_enviada TEXT NOT NULL,
     status ENUM('enviado', 'erro') DEFAULT 'enviado',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     FOREIGN KEY (os_id) REFERENCES ordens_servico(id) ON DELETE CASCADE,
     FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
-    FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
-    INDEX idx_os_id (os_id),
-    INDEX idx_created_at (created_at)
+    INDEX idx_os_id (os_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 18. TABELA: parcelas (Controle de parcelas)
--- ============================================
-CREATE TABLE parcelas (
+CREATE TABLE IF NOT EXISTS parcelas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     receita_id INT NOT NULL,
@@ -580,32 +353,10 @@ CREATE TABLE parcelas (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     FOREIGN KEY (receita_id) REFERENCES receitas(id) ON DELETE CASCADE,
-    INDEX idx_receita (receita_id),
-    INDEX idx_status (status),
-    INDEX idx_vencimento (data_vencimento)
+    INDEX idx_receita (receita_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================
--- 20. TABELA: email_logs (Logs de envio de e-mails)
--- ============================================
-CREATE TABLE email_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    empresa_id INT NOT NULL,
-    para VARCHAR(255) NOT NULL,
-    assunto VARCHAR(255) NOT NULL,
-    status ENUM('success', 'failed', 'pending') DEFAULT 'pending',
-    erro TEXT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
-    INDEX idx_empresa (empresa_id),
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ============================================
--- 19. TABELA: logs_sistema (Logs de ações críticas)
--- ============================================
-CREATE TABLE logs_sistema (
+CREATE TABLE IF NOT EXISTS logs_sistema (
     id INT AUTO_INCREMENT PRIMARY KEY,
     empresa_id INT NOT NULL,
     usuario_id INT NOT NULL,
@@ -619,10 +370,43 @@ CREATE TABLE logs_sistema (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
-    INDEX idx_empresa (empresa_id),
-    INDEX idx_usuario (usuario_id),
-    INDEX idx_modulo (modulo),
-    INDEX idx_nivel (nivel),
-    INDEX idx_created_at (created_at)
+    INDEX idx_empresa (empresa_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-==
+
+CREATE TABLE IF NOT EXISTS email_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    empresa_id INT NOT NULL,
+    para VARCHAR(255) NOT NULL,
+    assunto VARCHAR(255) NOT NULL,
+    status ENUM('success', 'failed', 'pending') DEFAULT 'pending',
+    erro TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
+    INDEX idx_empresa (empresa_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS pagamentos_rastreamento (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    empresa_id INT NOT NULL,
+    assinatura_id BIGINT,
+    plano_anterior VARCHAR(50),
+    plano_novo VARCHAR(50),
+    status_anterior VARCHAR(50),
+    status_novo VARCHAR(50),
+    valor DECIMAL(10,2),
+    webhook_event VARCHAR(100),
+    webhook_id VARCHAR(255) UNIQUE,
+    payload JSON,
+    processado_em DATETIME,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (empresa_id) REFERENCES empresas(id) ON DELETE CASCADE,
+    INDEX idx_empresa (empresa_id),
+    INDEX idx_assinatura (assinatura_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE OR REPLACE VIEW v_relatorio_assinaturas AS
+SELECT 
+    e.id, e.nome_fantasia, e.email, e.plano, e.assinatura_id, e.assinatura_status,
+    e.data_fim_trial, e.limite_os_mes, e.limite_tecnicos, e.limite_armazenamento_mb, e.created_at
+FROM empresas e
+ORDER BY e.updated_at DESC;

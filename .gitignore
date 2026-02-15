@@ -17,6 +17,8 @@ temp/
 # Arquivos de configuração local
 config.local.php
 .env
+# Arquivo de configuração principal (contém segredos) — não versionar
+app/config/config.php
 
 # Certificados
 certificados/

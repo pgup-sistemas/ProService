@@ -14,17 +14,107 @@ $flash = getFlash();
 <?php include __DIR__ . '/onboarding.php'; ?>
 <?php endif; ?>
 
-<?php if ($empresa['plano'] === 'trial'): ?>
-<div class="alert alert-warning">
-    <div class="d-flex align-items-center justify-content-between">
-        <div>
-            <i class="bi bi-clock"></i> <strong>Período de Trial</strong>
-            Você tem <?= ceil($diasTrial) ?> dias restantes do seu trial gratuito.
+<?php 
+// Verificação robusta de trial: se plano é 'trial' OU plano está vazio mas dataFimTrial está definido
+$isTrialActive = !empty($empresa) && (!empty($diasTrial) || (!empty($dataFimTrial) && strtotime($dataFimTrial) > time()));
+if ($isTrialActive): ?>
+<!-- Alert de Trial - Versão Melhorada -->
+<div class="mb-4">
+    <div class="card border-warning bg-warning bg-opacity-10 shadow-sm">
+        <div class="card-body p-md-4 p-3">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center mb-2 mb-md-3">
+                        <span class="fs-3 fs-md-1 me-2 me-md-3">⏰</span>
+                        <div>
+                            <h4 class="mb-0 text-warning fs-6 fs-md-5">Seu período de trial está terminando!</h4>
+                            <p class="text-muted mb-0 small">Aproveite os últimos dias de acesso ilimitado</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-2 g-md-3 mt-2 mt-md-3">
+                        <div class="col-4 col-md-4">
+                            <div class="p-2 p-md-3 bg-white rounded border border-warning">
+                                <div class="text-center">
+                                    <h5 class="text-warning mb-0 fs-5 fs-md-3"><?= (int) ceil($diasTrial) ?></h5>
+                                    <small class="text-muted d-block">dias</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4 col-md-4">
+                            <div class="p-2 p-md-3 bg-white rounded">
+                                <div class="text-center">
+                                    <h6 class="mb-0 fs-5">∞</h6>
+                                    <small class="text-muted d-block">OS</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4 col-md-4">
+                            <div class="p-2 p-md-3 bg-white rounded">
+                                <div class="text-center">
+                                    <h6 class="mb-0 fs-5">∞</h6>
+                                    <small class="text-muted d-block">Técnicos</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 mt-md-3">
+                        <small class="text-muted d-block mb-1">
+                            <i class="bi bi-calendar3"></i> Expira: <strong><?= date('d/m/Y', strtotime($dataFimTrial)) ?></strong>
+                        </small>
+                        <small class="text-muted d-none d-md-block">
+                            <i class="bi bi-info-circle"></i> Após o trial, escolha um plano para continuar.
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-4 mt-3 mt-md-0">
+                    <div class="text-center text-md-end">
+                        <h6 class="mb-2 mb-md-3 text-dark">Escolha seu Plano</h6>
+                        <div class="d-grid gap-2">
+                            <a href="<?= url('assinaturas/efipay-checkout/starter') ?>" class="btn btn-primary btn-sm btn-md-lg">
+                                <i class="bi bi-arrow-up-circle me-1"></i><span class="d-none d-md-inline">Plano </span>Básico
+                                <div><small>R$ 49,90</small></div>
+                            </a>
+                            <a href="<?= url('assinaturas/efipay-checkout/pro') ?>" class="btn btn-success btn-sm btn-md-lg">
+                                <i class="bi bi-star-fill me-1"></i><span class="d-none d-md-inline">Plano </span>Pro
+                                <div><small>R$ 99,90</small></div>
+                            </a>
+                            <a href="<?= url('assinaturas') ?>" class="btn btn-outline-secondary btn-sm">
+                                Ver planos
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <a href="<?= url('assinaturas') ?>" class="btn btn-warning btn-sm">
-            <i class="bi bi-arrow-up-circle me-1"></i>Fazer Upgrade
-        </a>
     </div>
+    <style>
+        @media (max-width: 768px) {
+            .btn-md-lg {
+                font-size: 0.875rem;
+                padding: 0.4rem 0.8rem;
+            }
+            .fs-md-5 {
+                font-size: 1rem !important;
+            }
+            .fs-md-1 {
+                font-size: 3rem !important;
+            }
+            .me-md-3 {
+                margin-right: 1rem !important;
+            }
+            .p-md-3 {
+                padding: 0.75rem !important;
+            }
+            .p-md-4 {
+                padding: 0.75rem !important;
+            }
+            .gap-md-3 {
+                gap: 0.75rem !important;
+            }
+        }
+    </style>
 </div>
 <?php endif; ?>
 

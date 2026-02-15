@@ -1,0 +1,276 @@
+================================================================================
+🚀 GUIA RÁPIDO - COLOCAR EM PRODUÇÃO
+================================================================================
+
+Domínio: proservice.pageup.net.br
+Data: 14/02/2026
+Tempo estimado: 40 minutos
+
+================================================================================
+PASSO-A-PASSO RÁPIDO
+================================================================================
+
+PASSO 1: BACKUP (2 min)
+════════════════════════════════════════════════════════════════════════════════
+Comando no servidor:
+
+  mysqldump -u usuario -p proservice > backup_antes_producao_$(date +%Y%m%d_%H%M%S).sql
+  
+Salve em local seguro!
+
+
+PASSO 2: EXECUTAR ALTER TABLE (2 min)
+════════════════════════════════════════════════════════════════════════════════
+No servidor, via phpMyAdmin ou MySQL CLI:
+
+  mysql -u usuario -p proservice < MIGRACAO_ASSINATURAS.sql
+  
+Valide:
+  SELECT COUNT(*) as total_campos FROM INFORMATION_SCHEMA.COLUMNS 
+  WHERE TABLE_NAME='empresas' 
+  AND COLUMN_NAME IN ('assinatura_id', 'assinatura_status', 'cpf_responsavel');
+  
+Deve retornar: 3 (ou 4 se contar responsavel_nome)
+
+
+PASSO 3: OBTER CREDENCIAIS EFIPAY (5 min)
+════════════════════════════════════════════════════════════════════════════════
+1. Acesse: https://dashboard.efipay.com.br
+2. Faça login com sua conta
+3. Menu: Configurações > API
+4. Copie EXATAMENTE:
+   - Client ID (Produção)
+   - Client Secret (Produção)
+5. Anote em local seguro
+
+Exemplo do que você vai copiar:
+  Client_Id_1a2b3c4d5e6f7g8h9i0j
+  Client_Secret_9i0j8h7g6f5e4d3c2b1a
+
+
+PASSO 4: GERAR CERTIFICADO SSL (3 min)
+════════════════════════════════════════════════════════════════════════════════
+1. Dashboard EfiPay > Configurações > Segurança > Certificados
+2. Clique: "Gerar novo certificado"
+3. Formato: .P12 (PKCS12)
+4. Defina uma senha SEGURA (anote!)
+5. Baixe o arquivo (ex: producao-123456.p12)
+
+⚠️  GUARDE A SENHA EM LOCAL SEGURO!
+
+
+PASSO 5: FAZER UPLOAD DO CERTIFICADO (2 min)
+════════════════════════════════════════════════════════════════════════════════
+
+Via FTP:
+  1. Conecte ao servidor FTP de proservice.pageup.net.br
+  2. Navegue até: /app/certs/
+  3. Faça upload do arquivo .p12 (ex: producao-123456.p12)
+
+Via SCP (Git Bash / Terminal):
+  scp producao-123456.p12 seu-usuario@proservice.pageup.net.br:/var/www/proservice/app/certs/
+
+Via SSH (no servidor):
+  1. Conecte via SSH
+  2. Comando:
+     cd /var/www/proservice/app/certs/
+     # Copie o arquivo .p12 aqui
+
+
+PASSO 6: AJUSTAR PERMISSÕES (1 min)
+════════════════════════════════════════════════════════════════════════════════
+SSH no servidor:
+
+  chmod 600 /var/www/proservice/app/certs/*.p12
+  
+Verifique:
+  ls -la /var/www/proservice/app/certs/
+  
+Deve mostrar:
+  -rw------- (600) seu-certificado.p12
+
+
+PASSO 7: ATUALIZAR config.php (2 min)
+════════════════════════════════════════════════════════════════════════════════
+Arquivo: /app/config/config.php
+Linhas: ~115-160
+
+MUDANÇA 1: Comente HOMOLOGAÇÃO
+  Linhas ~119-122, adicione // na frente:
+  
+  // define('EFIPAY_CLIENT_ID', 'Client_Id_88b1ea1a0cee068e4781794f94970dd9cd06ef11');
+  // define('EFIPAY_CLIENT_SECRET', 'Client_Secret_4490ae783fee256da5c558aa6dc954605368ab17');
+  // define('EFIPAY_SANDBOX', true);
+
+
+MUDANÇA 2: Descomente PRODUÇÃO
+  Após linha 120, descomente (remova //) e ajuste:
+  
+  define('EFIPAY_CLIENT_ID', 'Client_Id_XXXXX_AQUI_XXXXX');
+  define('EFIPAY_CLIENT_SECRET', 'Client_Secret_XXXXX_AQUI_XXXXX');
+  define('EFIPAY_SANDBOX', false);
+  define('EFIPAY_CERT_PATH', PROSERVICE_ROOT . '/app/certs/producao-123456.p12');
+  define('EFIPAY_CERT_PASS', 'senha_que_voce_definiu');
+  
+⚠️  Substitua valores [AQUI] pelas credenciais copiadas no passo 3
+⚠️  Substitua "producao-123456.p12" pelo nome EXATO do seu arquivo
+⚠️  Substitua "senha_que_voce_definiu" pela senha do certificado
+
+
+PASSO 8: CONFIGURAR WEBHOOK EFIPAY (5 min)
+════════════════════════════════════════════════════════════════════════════════
+1. Dashboard EfiPay > Configurações > Webhooks
+2. Clique: "+ Novo Webhook"
+3. Configure:
+   
+   URL: https://proservice.pageup.net.br/webhook/efipay
+   
+   Eventos (marque com ✓):
+   ✓ subscription.payment
+   ✓ subscription.suspended
+   ✓ subscription.canceled
+   ✓ subscription.reactivated
+   
+4. Clique em: "Salvar"
+5. Clique em: "Enviar Teste"
+6. Verifique se recebeu (deve aparecer ✓ próximo ao webhook)
+
+
+PASSO 9: TESTES DE FUNCIONAMENTO (30 min)
+════════════════════════════════════════════════════════════════════════════════
+
+TESTE 1: Login no dashboard
+  Acesse: https://proservice.pageup.net.br/dashboard
+  Verifique se conecta sem erro SSL
+
+TESTE 2: Seleção de planos
+  Acesse: https://proservice.pageup.net.br/assinaturas
+  Veja os 3 planos: Trial, Básico, Profissional
+
+TESTE 3: Checkout
+  Clique em "Assinar Agora" (Plano Profissional)
+  Deve redirecionar para EfiPay
+  Preencha dados de TESTE (EfiPay fornece)
+  Confirme pagamento
+
+TESTE 4: Retorno
+  Deve retornar para /assinaturas/gerenciar
+  Valide: plano mudou para 'profissional'
+  Valide: assinatura_status = 'pending' (ou 'active' se webhook já processou)
+
+TESTE 5: Webhook
+  Aguarde ~30 segundos
+  Recarregue a página
+  Valide: assinatura_status = 'active'
+  Valide: limites foram atualizados
+
+TESTE 6: Logs
+  SSH no servidor:
+  tail -50 /var/log/php/proservice.log
+  
+  Procure por:
+  "Tentando autenticar com clientId..." ✓
+  "HTTP=200" ✓
+  "EfiPay Webhook:" ✓
+
+
+PASSO 10: VALIDAÇÃO FINAL (5 min)
+════════════════════════════════════════════════════════════════════════════════
+Execute no banco:
+
+  SELECT id, nome_fantasia, plano, assinatura_status, assinatura_id 
+  FROM empresas 
+  WHERE assinatura_status IN ('pending', 'active') 
+  LIMIT 5;
+
+Deve mostrar empresas com assinatura ativa.
+
+
+================================================================================
+✅ PRONTO! SISTEMA EM PRODUÇÃO
+================================================================================
+
+Se tudo funcionou:
+  ✓ Checkout redireciona para EfiPay
+  ✓ Webhook é recebido
+  ✓ Plano é atualizado no banco
+  ✓ Limites são aplicados
+  ✓ Dashboard mostra novo plano
+  
+Sistema está VIVO! 🚀
+
+Domínio: https://proservice.pageup.net.br
+Webhook: https://proservice.pageup.net.br/webhook/efipay
+
+
+================================================================================
+❌ SE DER ERRO
+================================================================================
+
+Erro 1: "SSL certificate error"
+  Solução: Verifique certificado em /app/certs/
+           chmod 600 /app/certs/*.p12
+           Verifique EFIPAY_CERT_PATH em config.php
+
+Erro 2: "Client authentication failed"
+  Solução: Verifique CLIENT_ID e CLIENT_SECRET
+           Copie EXATAMENTE do painel EfiPay (sem espaços)
+
+Erro 3: "Webhook não recebido"
+  Solução: Verifique URL é HTTPS
+           Testar: curl -X POST https://proservice.pageup.net.br/webhook/efipay
+           Verificar: firewall bloqueia POST?
+           No painel EfiPay, clicar "Ver tentativas"
+
+Erro 4: "Certificado não encontrado"
+  Solução: Verificar arquivo em /app/certs/
+           Verificar nome EXATO em EFIPAY_CERT_PATH
+           Verificar permissões (chmod 600)
+
+Erro 5: "SANDBOX = true"
+  Solução: Descomente a seção PRODUÇÃO em config.php
+           Comente a seção HOMOLOGAÇÃO
+           EFIPAY_SANDBOX DEVE SER false
+
+
+Rollback se algo der errado:
+  1. Restaurar banco: mysql < backup_anterior.sql
+  2. Reverter config.php: git checkout app/config/config.php
+  3. Contactar suporte EfiPay: suporte@efipay.com.br
+
+
+================================================================================
+CHECKLIST FINAL
+================================================================================
+
+[ ] 1. Backup feito
+[ ] 2. ALTER TABLE executado
+[ ] 3. Credenciais de produção copiadas
+[ ] 4. Certificado .p12 gerado
+[ ] 5. Certificado uploaded
+[ ] 6. Permissões chmod 600
+[ ] 7. config.php atualizado
+[ ] 8. SANDBOX desativado
+[ ] 9. CERT_PATH configurado
+[ ] 10. CERT_PASS configurado
+[ ] 11. Webhook configurado
+[ ] 12. Webhook testado
+[ ] 13. Checkout funcionando
+[ ] 14. Webhook recebido
+[ ] 15. Banco atualizado
+[ ] 16. Sistema em produção! 🎉
+
+
+================================================================================
+Documentos de referência (na raiz do projeto):
+  - RESPOSTA_FINAL.txt (leia primeiro)
+  - GUIA_PRODUCAO_ASSINATURAS.md (detalhes técnicos)
+  - MIGRACAO_ASSINATURAS.sql (script SQL)
+  - CONFIG_PRODUCAO_TEMPLATE.php (referência de config)
+  - app/certs/README.md (instruções de certificado)
+
+Suporte EfiPay: https://www.efipay.com.br/suporte
+Domínio: proservice.pageup.net.br
+Status: ✅ PRONTO PARA PRODUÇÃO
+
+================================================================================

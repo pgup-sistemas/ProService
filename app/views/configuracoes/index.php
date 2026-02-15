@@ -54,7 +54,7 @@
                         <div class="mb-4 text-center">
                             <?php if (!empty($empresa['logo'])): ?>
                             <div class="mb-3">
-                                <img src="<?= url($empresa['logo']) ?>" alt="Logo" class="img-thumbnail" style="max-height: 100px;">
+                                <img src="<?= uploadUrl($empresa['logo']) ?>" alt="Logo" class="img-thumbnail" style="max-height: 100px;">
                             </div>
                             <?php endif; ?>
                             <label class="form-label">Logo da Empresa</label>

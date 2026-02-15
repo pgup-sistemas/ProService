@@ -1,37 +1,45 @@
 <?= breadcrumb(['Dashboard' => 'dashboard', 'Ordens de Serviço' => 'ordens', 'OS #' . str_pad($os['numero_os'], 4, '0', STR_PAD_LEFT)]) ?>
 
-<div class="d-flex align-items-center mb-4">
-   
+<style>
+/* OS Show - Mobile UX */
+@media (max-width: 991px) {
+    .os-header-mobile { flex-direction: column; align-items: stretch; gap: 12px; }
+    .os-header-mobile .os-actions { justify-content: flex-start; flex-wrap: wrap; }
+    .os-btn-touch { min-height: 44px; padding: 10px 16px; }
+    .os-sidebar-mobile { order: -1; }
+    .os-fluxo-btns .btn { min-height: 44px; flex: 1 1 140px; }
+}
+[aria-expanded="false"] .collapse-icon { transform: rotate(-90deg); transition: transform 0.2s; }
+</style>
+
+<div class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3 mb-4 os-header-mobile">
     <div>
-        <h4 class="mb-0">OS #<?= str_pad($os['numero_os'], 4, '0', STR_PAD_LEFT) ?></h4>
+        <h4 class="mb-1">OS #<?= str_pad($os['numero_os'], 4, '0', STR_PAD_LEFT) ?></h4>
         <p class="mb-0 text-muted"><?= e($os['cliente_nome']) ?></p>
     </div>
-    <div class="ms-auto d-flex gap-2">
-        <!-- Botões de Ação -->
+    <div class="d-flex flex-wrap gap-2 align-items-center os-actions">
+        <span class="badge <?= getStatusClass($os['status']) ?> fs-6">
+            <i class="bi <?= getStatusIcon($os['status']) ?> me-1"></i><?= getStatusLabel($os['status']) ?>
+        </span>
         <?php if (!in_array($os['status'], ['cancelada', 'paga'])): ?>
-            <a href="<?= url('ordens/edit/' . $os['id']) ?>" class="btn btn-outline-primary">
+            <a href="<?= url('ordens/edit/' . $os['id']) ?>" class="btn btn-outline-primary btn-sm os-btn-touch">
                 <i class="bi bi-pencil"></i> Editar
             </a>
         <?php endif; ?>
-        
         <?php if (isAdmin() && !in_array($os['status'], ['paga'])): ?>
-            <form method="POST" action="<?= url('ordens/destroy/' . $os['id']) ?>" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir esta OS? Esta ação não pode ser desfeita.');">
+            <form method="POST" action="<?= url('ordens/destroy/' . $os['id']) ?>" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir esta OS?');">
                 <?= csrfField() ?>
-                <button type="submit" class="btn btn-outline-danger">
+                <button type="submit" class="btn btn-outline-danger btn-sm os-btn-touch">
                     <i class="bi bi-trash"></i> Excluir
                 </button>
             </form>
         <?php endif; ?>
-        
-        <span class="badge <?= getStatusClass($os['status']) ?> fs-6 d-flex align-items-center">
-            <?= getStatusLabel($os['status']) ?>
-        </span>
     </div>
 </div>
 
 <div class="row g-3">
-    <!-- Informações Principais -->
-    <div class="col-lg-8">
+    <!-- Coluna Principal (Informações, Produtos, Fotos, etc.) -->
+    <div class="col-lg-8 order-2 order-lg-1">
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6 class="mb-0"><i class="bi bi-info-circle"></i> Informações</h6>
@@ -66,8 +74,13 @@
                     <div class="col-md-6">
                         <label class="text-muted small">Cliente</label>
                         <p class="fw-medium mb-1"><?= e($os['cliente_nome']) ?></p>
-                        <?php if ($os['cliente_telefone']): ?>
-                        <p class="mb-0 small"><i class="bi bi-telephone"></i> <?= formatPhone($os['cliente_telefone']) ?></p>
+                        <?php if ($os['cliente_telefone']): 
+                            $tel = preg_replace('/\D/', '', $os['cliente_telefone']);
+                            $tel = (strlen($tel) <= 11) ? '55' . $tel : $tel;
+                        ?>
+                        <p class="mb-0 small">
+                            <a href="tel:+<?= $tel ?>" class="text-decoration-none"><i class="bi bi-telephone"></i> <?= formatPhone($os['cliente_telefone']) ?></a>
+                        </p>
                         <?php endif; ?>
                     </div>
                     <div class="col-md-6">
@@ -270,11 +283,11 @@
         
         <!-- Fluxo de Status / Workflow -->
         <div class="card mt-3 mb-3">
-            <div class="card-header mb-3">
+            <div class="card-header">
                 <h6 class="mb-0"><i class="bi bi-arrow-repeat"></i> Fluxo de Trabalho</h6>
             </div>
             <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
+                <div class="d-flex flex-wrap gap-2 os-fluxo-btns">
                     <?php
                     // Definir ações disponíveis baseadas no status atual
                     $acoes = [];
@@ -377,9 +390,11 @@
         <!-- Histórico de Comunicações -->
         <?php if (!empty($comunicacoes)): ?>
         <div class="card mb-3">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#cardComunicacoes" style="cursor: pointer;" aria-expanded="true">
                 <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Comunicações</h6>
+                <i class="bi bi-chevron-down collapse-icon"></i>
             </div>
+            <div class="collapse show" id="cardComunicacoes">
             <div class="card-body">
                 <div class="list-group list-group-flush">
                     <?php foreach ($comunicacoes as $c): 
@@ -408,15 +423,18 @@
                     <?php endforeach; ?>
                 </div>
             </div>
+            </div>
         </div>
         <?php endif; ?>
 
         <!-- Histórico / Timeline -->
         <?php if (!empty($logs)): ?>
         <div class="card mb-3">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#cardHistorico" style="cursor: pointer;" aria-expanded="true">
                 <h6 class="mb-0"><i class="bi bi-clock-history"></i> Histórico de Alterações</h6>
+                <i class="bi bi-chevron-down collapse-icon"></i>
             </div>
+            <div class="collapse show" id="cardHistorico">
             <div class="card-body">
                 <div class="timeline">
                     <?php foreach ($logs as $log): 
@@ -447,38 +465,37 @@
                     <?php endforeach; ?>
                 </div>
             </div>
+            </div>
         </div>
         <?php endif; ?>
     </div>
     
-    <!-- Coluna Lateral -->
-    <div class="col-lg-4">
-        <!-- Link Público -->
+    <!-- Coluna Lateral - No mobile aparece primeiro (ações rápidas) -->
+    <div class="col-lg-4 order-1 order-lg-2 os-sidebar-mobile">
+        <!-- Ações Rápidas (Link, WhatsApp, Recibo) -->
         <div class="card mb-3">
             <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-link-45deg"></i> Link de Acompanhamento</h6>
+                <h6 class="mb-0"><i class="bi bi-lightning-charge-fill text-warning me-1"></i> Ações Rápidas</h6>
             </div>
             <div class="card-body">
-                <div class="input-group mb-2">
-                    <input type="text" class="form-control form-control-sm" value="<?= url('acompanhar/' . $os['token_publico']) ?>" readonly id="link-publico">
-                    <button class="btn btn-sm btn-outline-secondary" type="button" onclick="copiarLink()">
-                        <i class="bi bi-clipboard"></i>
-                    </button>
+                <div class="d-grid gap-2 mb-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control form-control-sm" value="<?= url('acompanhar/' . $os['token_publico']) ?>" readonly id="link-publico">
+                        <button class="btn btn-outline-primary" type="button" onclick="copiarLink()" title="Copiar link">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Link para cliente acompanhar</small>
                 </div>
-                <small class="text-muted">Envie este link para o cliente acompanhar o status da OS</small>
-            </div>
-        </div>
         
-        <!-- Gerar Contrato -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="bi bi-file-text text-primary"></i> Contrato</h6>
-            </div>
-            <div class="card-body">
-                <a href="<?= url('configuracoes/gerar-contrato/' . $os['id']) ?>" class="btn btn-outline-primary w-100" target="_blank">
+                <a href="<?= url('configuracoes/gerar-contrato/' . $os['id']) ?>" class="btn btn-outline-primary mb-2 w-100 os-btn-touch" target="_blank">
                     <i class="bi bi-file-earmark-text"></i> Gerar Contrato
                 </a>
-                <small class="text-muted d-block mt-2">Gera contrato preenchido com dados desta OS</small>
+                <?php if ($recibo ?? false): ?>
+                <a href="<?= url('ordens/recibo/' . $os['id']) ?>" class="btn btn-success w-100 os-btn-touch" target="_blank">
+                    <i class="bi bi-receipt"></i> Ver Recibo
+                </a>
+                <?php endif; ?>
             </div>
         </div>
         
@@ -504,32 +521,29 @@
                 
                 <div class="d-grid gap-2">
                     <a href="<?= \App\Models\Comunicacao::gerarLinkWhatsApp($os['cliente_telefone'], \App\Models\Comunicacao::processarTemplate('os_criada', $variaveis)) ?>" 
-                       target="_blank" class="btn btn-outline-success btn-sm" 
+                       target="_blank" class="btn btn-outline-success os-btn-touch" 
                        onclick="registrarWhatsApp('os_criada')">
-                        <i class="bi bi-chat-dots"></i> OS Criada
+                        <i class="bi bi-whatsapp"></i> OS Criada
                     </a>
-                    
                     <?php if (in_array($os['status'], ['em_orcamento', 'aprovada'])): ?>
                     <a href="<?= \App\Models\Comunicacao::gerarLinkWhatsApp($os['cliente_telefone'], \App\Models\Comunicacao::processarTemplate('orcamento_enviado', $variaveis)) ?>" 
-                       target="_blank" class="btn btn-outline-success btn-sm"
+                       target="_blank" class="btn btn-outline-success os-btn-touch"
                        onclick="registrarWhatsApp('orcamento_enviado')">
-                        <i class="bi bi-calculator"></i> Orçamento
+                        <i class="bi bi-whatsapp"></i> Orçamento
                     </a>
                     <?php endif; ?>
-                    
                     <?php if (in_array($os['status'], ['finalizada', 'paga'])): ?>
                     <a href="<?= \App\Models\Comunicacao::gerarLinkWhatsApp($os['cliente_telefone'], \App\Models\Comunicacao::processarTemplate('os_finalizada', $variaveis)) ?>" 
-                       target="_blank" class="btn btn-outline-success btn-sm"
+                       target="_blank" class="btn btn-outline-success os-btn-touch"
                        onclick="registrarWhatsApp('os_finalizada')">
-                        <i class="bi bi-check-lg"></i> OS Finalizada
+                        <i class="bi bi-whatsapp"></i> OS Finalizada
                     </a>
                     <?php endif; ?>
-                    
                     <?php if ($os['status'] === 'paga'): ?>
                     <a href="<?= \App\Models\Comunicacao::gerarLinkWhatsApp($os['cliente_telefone'], \App\Models\Comunicacao::processarTemplate('pagamento_recebido', $variaveis)) ?>" 
-                       target="_blank" class="btn btn-outline-success btn-sm"
+                       target="_blank" class="btn btn-outline-success os-btn-touch"
                        onclick="registrarWhatsApp('pagamento_recebido')">
-                        <i class="bi bi-cash-coin"></i> Pagamento
+                        <i class="bi bi-whatsapp"></i> Pagamento
                     </a>
                     <?php endif; ?>
                 </div>
@@ -578,9 +592,21 @@
 <script>
 function copiarLink() {
     const input = document.getElementById('link-publico');
-    input.select();
-    document.execCommand('copy');
-    alert('Link copiado!');
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(input.value).then(() => mostrarToast('Link copiado!'));
+    } else {
+        input.select();
+        document.execCommand('copy');
+        mostrarToast('Link copiado!');
+    }
+}
+function mostrarToast(msg) {
+    const t = document.createElement('div');
+    t.className = 'position-fixed bottom-0 start-50 translate-middle-x mb-3 px-4 py-2 bg-dark text-white rounded shadow';
+    t.style.zIndex = '9999';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2000);
 }
 
 function registrarWhatsApp(template) {

@@ -17,69 +17,8 @@ class AssinaturaController extends Controller
     private Usuario $usuarioModel;
     private EfiPayService $efiPay;
 
-    // Planos disponíveis - ajustados conforme funcionalidades reais do sistema
-    private array $planos = [
-        'starter' => [
-            'id' => 'starter',
-            'nome' => 'Starter',
-            'descricao' => 'Ideal para começar',
-            'preco' => 2900, // R$ 29,00 em centavos
-            'intervalo' => 30, // dias
-            'limite_os' => 50,
-            'limite_tecnicos' => 1,
-            'limite_armazenamento' => 100, // MB
-            'recursos' => [
-                '50 OS/mês',
-                '1 técnico',
-                '100 MB armazenamento',
-                'Relatórios básicos',
-                'Suporte por email',
-                'Clientes ilimitados'
-            ],
-            'destaque' => false
-        ],
-        'pro' => [
-            'id' => 'pro',
-            'nome' => 'Pro',
-            'descricao' => 'Para empresas em crescimento',
-            'preco' => 5900, // R$ 59,00 em centavos
-            'intervalo' => 30,
-            'limite_os' => -1, // ilimitado
-            'limite_tecnicos' => 5,
-            'limite_armazenamento' => 1024, // 1 GB
-            'recursos' => [
-                'OS ilimitadas',
-                'Até 5 técnicos',
-                '1 GB armazenamento',
-                'Relatórios avançados',
-                'Suporte prioritário',
-                'Clientes ilimitados',
-                'Logs do sistema'
-            ],
-            'destaque' => true
-        ],
-        'business' => [
-            'id' => 'business',
-            'nome' => 'Business',
-            'descricao' => 'Solução completa',
-            'preco' => 9900, // R$ 99,00 em centavos
-            'intervalo' => 30,
-            'limite_os' => -1, // ilimitado
-            'limite_tecnicos' => -1, // ilimitado
-            'limite_armazenamento' => 5120, // 5 GB
-            'recursos' => [
-                'OS ilimitadas',
-                'Técnicos ilimitados',
-                '5 GB armazenamento',
-                'Todos os relatórios',
-                'Suporte prioritário',
-                'Clientes ilimitados',
-                'Logs do sistema',
-                'Backup automático'
-            ],
-            'destaque' => false
-        ]
-    ];
+    // Nota: Planos agora são carregados dinamicamente via getPlanos()
+    // Para manter sincronização com config.php
 
     public function __construct()
     {
@@ -99,16 +38,25 @@ class AssinaturaController extends Controller
         $empresa = $this->empresaModel->findById($empresaId);
 
         $usoOS = $this->osModel->countMesAtual();
-        $limiteOS = $empresa['limite_os_mes'] ?? 20;
+        
+        // Obter plano atual (com fallback para trial se vazio)
+        $planoAtual = $empresa['plano'] ?? 'trial';
+        if (empty($planoAtual)) {
+            $planoAtual = 'trial'; // Se vazio, assumir trial
+        }
+        
+        // Usar dados do plano, não do banco (banco pode ter valores desatualizado)
+        $dadosPlano = $this->empresaModel->getDadosPlano($planoAtual);
+        $limiteOS = $dadosPlano['limite_os'] ?? 100;
 
         $totalTecnicos = $this->usuarioModel->count(['empresa_id' => $empresaId, 'perfil' => 'tecnico', 'ativo' => 1]);
-        $limiteTecnicos = $empresa['limite_tecnicos'] ?? 1;
+        $limiteTecnicos = $dadosPlano['limite_tecnicos'] ?? 1;
 
-        $limiteArmazenamento = $empresa['limite_armazenamento_mb'] ?? 100;
+        $limiteArmazenamento = $dadosPlano['limite_armazenamento'] ?? 1024;
         
         // Calcular dias restantes do trial baseado na data de criação da conta
         $diasTrial = 0;
-        if ($empresa['plano'] === 'trial') {
+        if ($empresa['plano'] === 'trial' || (empty($empresa['plano']) && !empty($empresa['data_fim_trial']))) {
             // Usar data_fim_trial se existir, senão calcular baseado na data de criação
             if (!empty($empresa['data_fim_trial'])) {
                 $dataFimTrial = new \DateTime($empresa['data_fim_trial']);
@@ -122,23 +70,18 @@ class AssinaturaController extends Controller
                 $dataFimTrial->modify('+14 days');
             }
             
-            $agora = new \DateTime();
-            $intervalo = $agora->diff($dataFimTrial);
-            
-            // Se a data final do trial é no futuro, mostrar dias restantes
-            if ($dataFimTrial > $agora) {
-                $diasTrial = $intervalo->days;
-            } else {
-                $diasTrial = 0;
-            }
+            // Usar mesma fórmula que DashboardController para consistência
+            $dataFimTrialStr = $dataFimTrial->format('Y-m-d H:i:s');
+            $diasTrial = max(0, (strtotime($dataFimTrialStr) - time()) / 86400);
+            $diasTrial = (int) ceil($diasTrial); // Arredonda para cima para mostrar dia completo
         }
 
         // Capturar conteúdo da view
         ob_start();
         $this->view('assinaturas/planos', [
             'titulo' => 'Escolha seu Plano - ' . APP_NAME,
-            'planos' => $this->planos,
-            'planoAtual' => $empresa['plano'] ?? 'trial',
+            'planos' => $this->getPlanos(),
+            'planoAtual' => $planoAtual,
             'diasTrial' => $diasTrial,
             'empresa' => $empresa,
             'usoOS' => $usoOS,
@@ -151,6 +94,59 @@ class AssinaturaController extends Controller
         
         // Renderizar com layout
         $this->layout('main', ['titulo' => 'Escolha seu Plano - ' . APP_NAME, 'content' => $content]);
+    }
+
+    /**
+     * Retorna array de planos sincronizado com config.php
+     * Conforme SPEC: 2 planos pagos (Básico e Profissional) + Trial
+     */
+    private function getPlanos(): array
+    {
+        $formatArmazenamento = function($mb) {
+            return $mb >= 1024 ? ($mb / 1024) . ' GB' : $mb . ' MB';
+        };
+
+        return [
+            'starter' => [
+                'id' => 'starter',
+                'nome' => 'Básico',
+                'descricao' => 'Ideal para começar',
+                'preco' => (int)(PLANO_STARTER_PRECO * 100), // Converter para centavos
+                'intervalo' => 30,
+                'limite_os' => PLANO_STARTER_OS,
+                'limite_tecnicos' => PLANO_STARTER_TECNICOS,
+                'limite_armazenamento' => PLANO_STARTER_ARMAZENAMENTO,
+                'recursos' => [
+                    PLANO_STARTER_OS . ' OS/mês',
+                    'Até ' . PLANO_STARTER_TECNICOS . ' técnicos',
+                    $formatArmazenamento(PLANO_STARTER_ARMAZENAMENTO),
+                    'Relatórios básicos',
+                    'Suporte por email',
+                    'Clientes ilimitados'
+                ],
+                'destaque' => false
+            ],
+            'pro' => [
+                'id' => 'pro',
+                'nome' => 'Profissional',
+                'descricao' => 'Para empresas estabelecidas',
+                'preco' => (int)(PLANO_PRO_PRECO * 100),
+                'intervalo' => 30,
+                'limite_os' => PLANO_PRO_OS,
+                'limite_tecnicos' => PLANO_PRO_TECNICOS,
+                'limite_armazenamento' => PLANO_PRO_ARMAZENAMENTO,
+                'recursos' => [
+                    'OS ilimitadas',
+                    'Técnicos ilimitados',
+                    $formatArmazenamento(PLANO_PRO_ARMAZENAMENTO),
+                    'Relatórios avançados',
+                    'Suporte prioritário',
+                    'Clientes ilimitados',
+                    'Logs do sistema'
+                ],
+                'destaque' => true
+            ]
+        ];
     }
 
     /**
@@ -171,12 +167,13 @@ class AssinaturaController extends Controller
 
         // Capturar conteúdo da view
         ob_start();
+        $planos = $this->getPlanos();
         $this->view('assinaturas/gerenciar', [
             'titulo' => 'Minha Assinatura - ' . APP_NAME,
             'empresa' => $empresa,
             'assinatura' => $assinatura['data'] ?? null,
             'historico' => $historico['data'] ?? [],
-            'plano' => $this->planos[$empresa['plano']] ?? null
+            'plano' => $planos[$empresa['plano']] ?? null
         ]);
         $content = ob_get_clean();
         
@@ -270,8 +267,12 @@ class AssinaturaController extends Controller
     {
         $assinaturaId = $data['data']['subscription_id'] ?? null;
         $status = $data['data']['status'] ?? null;
+        $planoId = $data['data']['custom_id'] ?? null; // Contém 'EMP_[id]_PLANO_[planoId]'
 
-        if (!$assinaturaId) return;
+        if (!$assinaturaId) {
+            error_log('Webhook: assinatura_id vazio em subscription.payment');
+            return;
+        }
 
         // Buscar empresa pela assinatura
         $db = \App\Config\Database::getInstance();
@@ -280,13 +281,40 @@ class AssinaturaController extends Controller
         $empresa = $stmt->fetch(\PDO::FETCH_ASSOC);
 
         if ($empresa) {
-            $this->empresaModel->update($empresa['id'], [
-                'assinatura_status' => $status === 'paid' ? 'active' : 'pending'
-            ]);
+            $updateData = [
+                'assinatura_status' => $status === 'paid' ? 'active' : 'pending',
+                'assinatura_id' => $assinaturaId // Manter sincronizado
+            ];
+
+            // Se for pagamento confirmado, atualizar o plano também
+            if ($status === 'paid' && !empty($planoId)) {
+                // Extrair ID do plano do custom_id (formato: EMP_[empresaId]_PLANO_[planoId])
+                preg_match('/PLANO_(\w+)/', $planoId, $matches);
+                if (!empty($matches[1])) {
+                    $planosDisponiveis = ['starter', 'pro']; // Planos válidos
+                    if (in_array($matches[1], $planosDisponiveis)) {
+                        $planoAtualizado = $matches[1];
+                        $planosDados = $this->empresaModel->getDadosPlano($planoAtualizado);
+                        
+                        $updateData['plano'] = $planoAtualizado;
+                        $updateData['plano_nome'] = $planosDados['nome'] ?? 'Profissional';
+                        $updateData['limite_os_mes'] = $planosDados['limite_os'];
+                        $updateData['limite_tecnicos'] = $planosDados['limite_tecnicos'];
+                        $updateData['limite_armazenamento_mb'] = $planosDados['limite_armazenamento'];
+                        $updateData['data_inicio_plano'] = date('Y-m-d');
+                    }
+                }
+            }
+
+            $this->empresaModel->update($empresa['id'], $updateData);
+
+            error_log('Webhook processado: empresa=' . $empresa['id'] . ', status=' . $status . ', plano=' . ($planoAtualizado ?? 'não definido'));
 
             if (function_exists('logSystem')) {
-                logSystem('assinatura_pagamento', 'assinaturas', $assinaturaId, "Pagamento: {$status}");
+                logSystem('assinatura_pagamento', 'assinaturas', $assinaturaId, "Status: {$status}, Plano: " . ($planoAtualizado ?? 'preservado'));
             }
+        } else {
+            error_log('Webhook: Empresa não encontrada para assinatura ' . $assinaturaId);
         }
     }
 
@@ -329,14 +357,16 @@ class AssinaturaController extends Controller
      */
     public function efipayCheckout(string $planoId): void
     {
-        if (!isset($this->planos[$planoId])) {
+        $planos = $this->getPlanos();
+        
+        if (!isset($planos[$planoId])) {
             setFlash('error', 'Plano não encontrado.');
             $this->redirect('assinaturas');
         }
 
         $empresaId = getEmpresaId();
         $empresa = $this->empresaModel->findById($empresaId);
-        $plano = $this->planos[$planoId];
+        $plano = $planos[$planoId];
 
         // Criar link de pagamento via EfiPay
         $resultado = $this->efiPay->criarLinkPagamento(
@@ -352,12 +382,24 @@ class AssinaturaController extends Controller
         );
 
         if (!empty($resultado['data']['payment_url'])) {
+            // Extrair e salvar subscription_id se disponível
+            $subscriptionId = $resultado['data']['subscription_id'] ?? null;
+            
             // Salvar dados temporários para uso após retorno
             $_SESSION['efipay_pending'] = [
                 'plano_id' => $planoId,
                 'empresa_id' => $empresaId,
-                'custom_id' => $resultado['data']['custom_id'] ?? null
+                'custom_id' => $resultado['data']['custom_id'] ?? null,
+                'subscription_id' => $subscriptionId // ID da assinatura no EfiPay
             ];
+            
+            // Se já temos subscription_id, salvar no banco (opcional, para rastreamento)
+            if ($subscriptionId) {
+                $this->empresaModel->update($empresaId, [
+                    'assinatura_id' => $subscriptionId
+                ]);
+                error_log('Assinatura criada: empresa=' . $empresaId . ', subscription_id=' . $subscriptionId);
+            }
             
             // Redirecionar para checkout EfiPay
             header('Location: ' . $resultado['data']['payment_url']);
@@ -383,36 +425,76 @@ class AssinaturaController extends Controller
 
     /**
      * Processa retorno do checkout EfiPay
+     * Valida o pagamento consultando a API para confirmar
      */
     public function retorno(): void
     {
+        $planos = $this->getPlanos();
+        
         $status = $_GET['status'] ?? '';
         $paymentId = $_GET['payment_id'] ?? '';
         
-        if ($status === 'paid' && !empty($_SESSION['efipay_pending'])) {
-            $pending = $_SESSION['efipay_pending'];
-            $planoId = $pending['plano_id'];
-            $empresaId = $pending['empresa_id'];
-            
-            if (isset($this->planos[$planoId])) {
-                $plano = $this->planos[$planoId];
+        // Validação inicial
+        if (empty($paymentId) || empty($_SESSION['efipay_pending'])) {
+            setFlash('info', 'Retorno do pagamento recebido.');
+            $this->redirect('assinaturas');
+            return;
+        }
+
+        $pending = $_SESSION['efipay_pending'];
+        $planoId = $pending['plano_id'] ?? null;
+        $empresaId = $pending['empresa_id'] ?? null;
+
+        if (!$planoId || !$empresaId) {
+            setFlash('error', 'Dados da sessão inválidos.');
+            unset($_SESSION['efipay_pending']);
+            $this->redirect('assinaturas');
+            return;
+        }
+
+        // Validar se plano existe
+        if (!isset($planos[$planoId])) {
+            setFlash('error', 'Plano selecionado não é válido.');
+            unset($_SESSION['efipay_pending']);
+            $this->redirect('assinaturas');
+            return;
+        }
+
+        $plano = $planos[$planoId];
+
+        // Se status foi 'paid', confirmar com a API (opcional mas recomendado)
+        if ($status === 'paid') {
+            try {
+                // Aqui você poderia validar com a API EfiPay se necessário
+                // Por enquanto, confiamos no webhook para confirmação final
                 
-                // Atualizar empresa
                 $this->empresaModel->update($empresaId, [
                     'plano' => $planoId,
                     'plano_nome' => $plano['nome'],
-                    'assinatura_status' => 'active',
-                    'assinatura_inicio' => date('Y-m-d H:i:s')
+                    'assinatura_status' => 'pending', // Aguarda confirmação do webhook
+                    'assinatura_inicio' => date('Y-m-d H:i:s'),
+                    'limite_os_mes' => $plano['limite_os'],
+                    'limite_tecnicos' => $plano['limite_tecnicos'],
+                    'limite_armazenamento_mb' => $plano['limite_armazenamento'],
+                    'data_inicio_plano' => date('Y-m-d')
                 ]);
-                
-                setFlash('success', 'Pagamento confirmado! Bem-vindo ao plano ' . $plano['nome']);
+
+                error_log('Retorno de pagamento processado: empresa=' . $empresaId . ', plano=' . $planoId);
+
+                if (function_exists('logSystem')) {
+                    logSystem('retorno_pagamento', 'assinaturas', $empresaId, "Plano: {$plano['nome']}, Status: pending (aguardando confirmação)");
+                }
+
+                setFlash('success', 'Pagamento recebido! Seu plano ' . $plano['nome'] . ' será ativado em breve após confirmação.');
+            } catch (\Exception $e) {
+                error_log('Erro ao processar retorno de pagamento: ' . $e->getMessage());
+                setFlash('error', 'Erro ao atualizar plano: ' . $e->getMessage());
             }
-            
-            unset($_SESSION['efipay_pending']);
         } else {
-            setFlash('info', 'Pagamento pendente ou cancelado.');
+            setFlash('info', 'Pagamento em processamento. Você receberá uma confirmação por e-mail.');
         }
-        
+
+        unset($_SESSION['efipay_pending']);
         $this->redirect('assinaturas/gerenciar');
     }
 

@@ -448,8 +448,7 @@ class ConfiguracaoController extends Controller
         $planoAtual = $this->empresaModel->getDadosPlano($planoKey);
         $planosDisponiveis = [
             'starter' => $this->empresaModel->getDadosPlano('starter'),
-            'pro' => $this->empresaModel->getDadosPlano('pro'),
-            'business' => $this->empresaModel->getDadosPlano('business')
+            'pro' => $this->empresaModel->getDadosPlano('pro')
         ];
         
         // Uso atual (dados reais)
@@ -462,8 +461,9 @@ class ConfiguracaoController extends Controller
         $limiteTecnicos = $empresa['limite_tecnicos'] ?? 1;
 
         $diasTrial = 0;
-        if (($empresa['plano'] ?? '') === 'trial' && !empty($empresa['data_fim_trial'])) {
+        if ((($empresa['plano'] ?? '') === 'trial' || (empty($empresa['plano']) && !empty($empresa['data_fim_trial']))) && !empty($empresa['data_fim_trial'])) {
             $diasTrial = max(0, (strtotime($empresa['data_fim_trial']) - time()) / 86400);
+            $diasTrial = (int) ceil($diasTrial); // Arredonda para cima para mostrar dia completo
         }
         
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -473,7 +473,7 @@ class ConfiguracaoController extends Controller
                 $novoPlano = $mapPlano[$novoPlano];
             }
             
-            if (in_array($novoPlano, ['trial', 'starter', 'pro', 'business'], true)) {
+            if (in_array($novoPlano, ['trial', 'starter', 'pro'], true)) {
                 if ($this->empresaModel->atualizarPlano($empresaId, $novoPlano)) {
                     setFlash('success', 'Plano atualizado com sucesso!');
                 } else {

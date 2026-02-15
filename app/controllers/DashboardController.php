@@ -72,11 +72,37 @@ class DashboardController extends Controller
         // Verificar limite de OS
         $limiteOS = verificarLimiteOS();
         
-        // Verificar trial
-        $empresa = getEmpresaDados();
+        // Dados da empresa (SEMPRE do banco, nunca usar sessão desatualizada)
+        $empresa = $this->empresaModel->findById($empresaId);
+        
+        // Debug: Log se não encontrou empresa
+        if (!$empresa) {
+            error_log("DEBUG DashboardController: Empresa não encontrada para ID: {$empresaId}");
+            $empresa = getEmpresaDados();
+        }
+        
         $diasTrial = 0;
-        if ($empresa && $empresa['plano'] === 'trial') {
-            $diasTrial = max(0, (strtotime($empresa['data_fim_trial']) - time()) / 86400);
+        $dataFimTrial = null;
+        $trialExpirado = false;
+        
+        // Verificar dados de trial com lógica mais robusta
+        if ($empresa) {
+            // Se plano está vazio mas tem data_fim_trial no futuro, é trial
+            $isTrialPlan = ($empresa['plano'] === 'trial' || (empty($empresa['plano']) && !empty($empresa['data_fim_trial'])));
+            
+            if ($isTrialPlan && !empty($empresa['data_fim_trial'])) {
+                $dataFimTrial = $empresa['data_fim_trial'];
+                $diasTrial = max(0, (strtotime($dataFimTrial) - time()) / 86400);
+                $diasTrial = (int) ceil($diasTrial); // Arredonda para cima para mostrar dia completo
+                $trialExpirado = $diasTrial <= 0;
+                
+                // Se plano está vazio, atualizar no banco
+                if (empty($empresa['plano'])) {
+                    error_log("AVISO: Empresa ID {$empresaId} tem plano vazio mas data_fim_trial definida. Atualizando para 'trial'");
+                    $this->empresaModel->update($empresaId, ['plano' => 'trial']);
+                    $empresa['plano'] = 'trial';
+                }
+            }
         }
         
         // Verificar se onboarding deve ser mostrado
@@ -97,6 +123,8 @@ class DashboardController extends Controller
                 'produtosEmFalta' => $produtosEmFalta,
                 'limiteOS' => $limiteOS,
                 'diasTrial' => $diasTrial,
+                'dataFimTrial' => $dataFimTrial,
+                'trialExpirado' => $trialExpirado,
                 'empresa' => $empresa,
                 'mostrarOnboarding' => $mostrarOnboarding,
                 'progressoOnboarding' => $progressoOnboarding

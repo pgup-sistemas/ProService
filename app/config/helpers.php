@@ -222,9 +222,33 @@ function asset(string $path): string
 
 /**
  * Gera URL para uploads
+ * Aceita caminhos nos formatos:
+ * - "logos/file.png"
+ * - "uploads/logos/file.png"
+ * - "public/uploads/logos/file.png"
+ * - URLs absolutas (http/https)
  */
 function uploadUrl(string $filename): string
 {
+    $filename = trim($filename);
+    if ($filename === '') {
+        return APP_URL . '/public/assets/img/placeholder.png';
+    }
+
+    // Retorna URLs externas inalteradas
+    if (preg_match('#^https?://#i', $filename) || strpos($filename, '//') === 0) {
+        return $filename;
+    }
+
+    // Normaliza removendo possíveis prefixos redundantes
+    $filename = ltrim($filename, '/');
+    if (str_starts_with($filename, 'public/uploads/')) {
+        $filename = substr($filename, strlen('public/uploads/'));
+    }
+    if (str_starts_with($filename, 'uploads/')) {
+        $filename = substr($filename, strlen('uploads/'));
+    }
+
     return APP_URL . '/public/uploads/' . $filename;
 }
 
@@ -580,6 +604,24 @@ function getStatusClass(string $status): string
     ];
     
     return $classes[$status] ?? 'bg-secondary';
+}
+
+/**
+ * Retorna ícone Bootstrap para o status da OS
+ */
+function getStatusIcon(string $status): string
+{
+    $icons = [
+        'aberta' => 'bi-folder',
+        'em_orcamento' => 'bi-calculator',
+        'aprovada' => 'bi-check2-circle',
+        'em_execucao' => 'bi-gear-wide-connected',
+        'pausada' => 'bi-pause-circle',
+        'finalizada' => 'bi-check-circle',
+        'paga' => 'bi-cash-coin',
+        'cancelada' => 'bi-x-circle'
+    ];
+    return $icons[$status] ?? 'bi-circle';
 }
 
 /**

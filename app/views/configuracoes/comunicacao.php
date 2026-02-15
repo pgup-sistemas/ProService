@@ -309,7 +309,21 @@ document.querySelectorAll('.preview-btn').forEach(btn => {
         const link = `https://wa.me/${telefone}?text=${encodeURIComponent(content)}`;
         document.getElementById('linkWhatsApp').href = link;
         
-        new bootstrap.Modal(document.getElementById('previewModal')).show();
+        if (typeof bootstrap !== 'undefined') {
+            new bootstrap.Modal(document.getElementById('previewModal')).show();
+        } else {
+            let tries = 0;
+            const poll = setInterval(() => {
+                if (typeof bootstrap !== 'undefined' || ++tries > 50) {
+                    clearInterval(poll);
+                    if (typeof bootstrap !== 'undefined') {
+                        new bootstrap.Modal(document.getElementById('previewModal')).show();
+                    } else {
+                        console.warn('Bootstrap não disponível — preview modal não será exibido.');
+                    }
+                }
+            }, 100);
+        }
     });
 });
 

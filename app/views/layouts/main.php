@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($titulo ?? APP_NAME) ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= asset('favicon.svg') ?>">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
@@ -22,6 +23,8 @@
             background: linear-gradient(135deg, #1e40af 0%, #059669 100%);
             min-height: 100vh;
             color: white;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
         
         .sidebar .nav-link {
@@ -132,6 +135,82 @@
             border-radius: 10px;
         }
         
+        /* Card de Trial - Animado e Chamativo */
+        .card.border-warning {
+            animation: slideDown 0.5s ease-out;
+            border-left: 5px solid #ea580c !important;
+            border-top: 1px solid #ffc107;
+            border-right: 1px solid #ffc107;
+            border-bottom: 1px solid #ffc107;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 15px rgba(255, 193, 7, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+            }
+        }
+        
+        .card.border-warning .card-body {
+            position: relative;
+        }
+        
+        .card.border-warning .card-body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(234, 88, 12, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* Destaque para dias restantes */
+        .card.border-warning .border-warning {
+            box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        /* Botões no card de trial com hover effect */
+        .card.border-warning .btn {
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .card.border-warning .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+
+        /* Gradientes nos botões */
+        .card.border-warning .btn-primary {
+            background: linear-gradient(135deg, #0d6efd 0%, #0d5fc0 100%);
+            border: none;
+        }
+
+        .card.border-warning .btn-success {
+            background: linear-gradient(135deg, #198754 0%, #157347 100%);
+            border: none;
+        }
+        
         .form-control, .form-select {
             border-radius: 8px;
             border-color: #e5e7eb;
@@ -200,13 +279,49 @@
         @media (max-width: 768px) {
             .sidebar {
                 display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                z-index: 1000;
+                width: 260px;
+                height: 100vh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
             
             .sidebar.mobile-open {
                 display: block;
-                position: fixed;
-                z-index: 1000;
-                width: 260px;
+            }
+            
+            .sidebar p-4 {
+                padding: 12px 8px !important;
+            }
+            
+            .sidebar .nav-link {
+                padding: 8px 12px;
+                font-size: 0.95rem;
+            }
+            
+            .sidebar .nav-link i {
+                width: 20px;
+                margin-right: 6px;
+            }
+            
+            .sidebar .p-4 {
+                padding: 12px 8px !important;
+            }
+            
+            .sidebar h4 {
+                font-size: 1rem;
+                margin-bottom: 12px;
+            }
+            
+            .sidebar .mt-3 {
+                margin-top: 8px !important;
+            }
+            
+            .sidebar small {
+                font-size: 0.75rem;
             }
             
             .navbar-mobile {
@@ -404,6 +519,42 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    (function ensureBootstrapFallback() {
+        if (typeof bootstrap !== 'undefined') return;
+
+        // tenta CDN alternativa (cdnjs) e, em seguida, fallback local
+        const sources = [
+            'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js',
+            '<?= asset("assets/js/bootstrap.bundle.min.js") ?>'
+        ];
+
+        function loadScript(src) {
+            return new Promise(function(resolve, reject) {
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = () => resolve(src);
+                s.onerror = () => reject(src);
+                document.head.appendChild(s);
+            });
+        }
+
+        (async function trySources() {
+            for (const src of sources) {
+                try {
+                    await loadScript(src);
+                    if (typeof bootstrap !== 'undefined') {
+                        console.info('Bootstrap carregado via fallback:', src);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Falha ao carregar bootstrap de', src);
+                }
+            }
+            console.error('Falha ao carregar Bootstrap (CDN e fallback local).');
+        })();
+    })();
+    </script>
     
     <!-- Global Search Modal -->
     <div class="modal fade search-modal" id="globalSearchModal" tabindex="-1" aria-hidden="true">
@@ -431,20 +582,43 @@
 
     <script>
         // Global Search
-        let searchModal = new bootstrap.Modal(document.getElementById('globalSearchModal'));
+        let searchModal;
         let searchInput = document.getElementById('searchInput');
         let searchResults = document.getElementById('searchResults');
         let selectedIndex = -1;
         let results = [];
 
+        // Inicializa searchModal somente quando o Bootstrap estiver disponível (polling com timeout)
+        (function waitForBootstrapInit() {
+            if (typeof bootstrap !== 'undefined') {
+                searchModal = new bootstrap.Modal(document.getElementById('globalSearchModal'));
+                window.searchModal = searchModal;
+            } else {
+                let tries = 0;
+                const poll = setInterval(() => {
+                    if (typeof bootstrap !== 'undefined' || ++tries > 50) {
+                        clearInterval(poll);
+                        if (typeof bootstrap !== 'undefined') {
+                            searchModal = new bootstrap.Modal(document.getElementById('globalSearchModal'));
+                            window.searchModal = searchModal;
+                        } else {
+                            console.warn('Bootstrap não carregado — search modal desabilitado.');
+                        }
+                    }
+                }, 100);
+            }
+        })();
+
         // Abrir com Ctrl+K
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();
-                searchModal.show();
-                setTimeout(() => searchInput.focus(), 100);
+                if (searchModal) {
+                    searchModal.show();
+                    setTimeout(() => searchInput.focus(), 100);
+                }
             }
-            if (e.key === 'Escape' && searchModal._isShown) {
+            if (e.key === 'Escape' && searchModal && searchModal._isShown) {
                 searchModal.hide();
             }
         });
@@ -534,6 +708,21 @@
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('mobile-open');
         }
+        
+        // Fechar sidebar ao clicar em um link (mobile)
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.innerWidth <= 768) {
+                const sidebarLinks = document.querySelectorAll('.sidebar .nav-link');
+                sidebarLinks.forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        // Não fechar se for um link de collapse (data-bs-toggle)
+                        if (!this.hasAttribute('data-bs-toggle')) {
+                            document.getElementById('sidebar').classList.remove('mobile-open');
+                        }
+                    });
+                });
+            }
+        });
 
         // Formatação automática de campos monetários (formato brasileiro)
         document.addEventListener('DOMContentLoaded', function() {

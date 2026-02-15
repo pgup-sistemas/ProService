@@ -56,7 +56,7 @@
                     <div class="border rounded p-3 text-center bg-light">
                         <?php if (!empty($empresa['logo'])): ?>
                         <div class="mb-3">
-                            <img src="<?= url($empresa['logo']) ?>?t=<?= time() ?>" alt="Logo" class="img-thumbnail" style="max-height: 120px;">
+                            <img src="<?= uploadUrl($empresa['logo']) ?>?t=<?= time() ?>" alt="Logo" class="img-thumbnail" style="max-height: 120px;">
                             <div class="mt-2">
                                 <a href="<?= url('configuracoes/remover-logo') ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover logo?')">
                                     <i class="bi bi-trash"></i> Remover

@@ -1,6 +1,6 @@
 <?php
 /**
- * proService - Onboarding Wizard
+ * ProService - Onboarding Wizard
  * Arquivo: /app/views/dashboard/onboarding.php
  */
 
@@ -12,7 +12,7 @@ $steps = [
     5 => ['icon' => 'bi-check-circle', 'title' => 'Pronto!', 'desc' => 'Você está pronto para começar'],
 ];
 
-$currentStep = $progresso['etapa_atual'] ?? 1;
+$currentStep = $progressoOnboarding['etapa_atual'] ?? 1;
 $totalSteps = count($steps);
 $percentual = ($currentStep / $totalSteps) * 100;
 ?>
@@ -22,7 +22,7 @@ $percentual = ($currentStep / $totalSteps) * 100;
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header border-0">
-                <h5 class="modal-title">⚡ Bem-vindo ao proService!</h5>
+                <h5 class="modal-title">⚡ Bem-vindo ao ProService!</h5>
             </div>
             <div class="modal-body">
                 <!-- Progress Bar -->
@@ -107,20 +107,20 @@ $percentual = ($currentStep / $totalSteps) * 100;
                 <div class="mt-4">
                     <h6>Seu progresso:</h6>
                     <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex align-items-center <?= $progresso['logo'] ? 'text-success' : 'text-muted' ?>">
-                            <i class="bi <?= $progresso['logo'] ? 'bi-check-circle-fill' : 'bi-circle' ?> me-2"></i>
+                        <li class="list-group-item d-flex align-items-center <?= $progressoOnboarding['logo'] ? 'text-success' : 'text-muted' ?>">
+                            <i class="bi <?= $progressoOnboarding['logo'] ? 'bi-check-circle-fill' : 'bi-circle' ?> me-2"></i>
                             Logo da empresa enviada
                         </li>
-                        <li class="list-group-item d-flex align-items-center <?= $progresso['servico'] ? 'text-success' : 'text-muted' ?>">
-                            <i class="bi <?= $progresso['servico'] ? 'bi-check-circle-fill' : 'bi-circle' ?> me-2"></i>
+                        <li class="list-group-item d-flex align-items-center <?= $progressoOnboarding['servico'] ? 'text-success' : 'text-muted' ?>">
+                            <i class="bi <?= $progressoOnboarding['servico'] ? 'bi-check-circle-fill' : 'bi-circle' ?> me-2"></i>
                             Pelo menos 1 serviço cadastrado
                         </li>
-                        <li class="list-group-item d-flex align-items-center <?= $progresso['cliente'] ? 'text-success' : 'text-muted' ?>">
-                            <i class="bi <?= $progresso['cliente'] ? 'bi-check-circle-fill' : 'bi-circle' ?> me-2"></i>
+                        <li class="list-group-item d-flex align-items-center <?= $progressoOnboarding['cliente'] ? 'text-success' : 'text-muted' ?>">
+                            <i class="bi <?= $progressoOnboarding['cliente'] ? 'bi-check-circle-fill' : 'bi-circle' ?> me-2"></i>
                             Pelo menos 1 cliente cadastrado
                         </li>
-                        <li class="list-group-item d-flex align-items-center <?= $progresso['os'] ? 'text-success' : 'text-muted' ?>">
-                            <i class="bi <?= $progresso['os'] ? 'bi-check-circle-fill' : 'bi-circle' ?> me-2"></i>
+                        <li class="list-group-item d-flex align-items-center <?= $progressoOnboarding['os'] ? 'text-success' : 'text-muted' ?>">
+                            <i class="bi <?= $progressoOnboarding['os'] ? 'bi-check-circle-fill' : 'bi-circle' ?> me-2"></i>
                             Primeira OS criada
                         </li>
                     </ul>
@@ -132,20 +132,40 @@ $percentual = ($currentStep / $totalSteps) * 100;
 </div>
 
 <script>
-// Mostrar modal automaticamente
-const onboardingModal = new bootstrap.Modal(document.getElementById('onboardingModal'));
-onboardingModal.show();
+document.addEventListener('DOMContentLoaded', function() {
+    function initOnboardingModal() {
+        if (typeof bootstrap !== 'undefined') {
+            const onboardingModal = new bootstrap.Modal(document.getElementById('onboardingModal'));
+            onboardingModal.show();
 
-function pularEtapa() {
-    fetch('<?= url('api/onboarding/pular') ?>', {method: 'POST'})
-        .then(() => window.location.reload());
-}
+            window.pularEtapa = function() {
+                fetch('<?= url('api/onboarding/pular') ?>', {method: 'POST'})
+                    .then(() => window.location.reload());
+            };
 
-function finalizarOnboarding() {
-    fetch('<?= url('api/onboarding/finalizar') ?>', {method: 'POST'})
-        .then(() => {
-            onboardingModal.hide();
-            window.location.href = '<?= url('dashboard') ?>';
-        });
-}
+            window.finalizarOnboarding = function() {
+                fetch('<?= url('api/onboarding/finalizar') ?>', {method: 'POST'})
+                    .then(() => {
+                        onboardingModal.hide();
+                        window.location.href = '<?= url('dashboard') ?>';
+                    });
+            };
+
+            return true;
+        }
+        return false;
+    }
+
+    if (!initOnboardingModal()) {
+        let tries = 0;
+        const poll = setInterval(() => {
+            if (initOnboardingModal() || ++tries > 50) {
+                clearInterval(poll);
+                if (typeof bootstrap === 'undefined') {
+                    console.warn('Bootstrap não disponível — onboarding modal não será exibido.');
+                }
+            }
+        }, 100);
+    }
+});
 </script>

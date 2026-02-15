@@ -26,10 +26,30 @@ if ($percentualTecnicos == 0 && $limiteTecnicos > 0) {
 
 // Cores e ícones dos planos
 $planosInfo = [
-    'trial' => ['nome' => 'Trial Grátis', 'icon' => '🎁', 'color' => 'warning'],
-    'starter' => ['nome' => 'Starter', 'icon' => '💼', 'color' => 'primary'],
-    'pro' => ['nome' => 'Pro', 'icon' => '🚀', 'color' => 'success'],
-    'business' => ['nome' => 'Business', 'icon' => '🏢', 'color' => 'dark']
+    'trial' => [
+        'nome' => 'Trial Grátis', 
+        'icon' => '🎁', 
+        'color' => 'warning',
+        'descricao' => 'Experimente grátis por 15 dias'
+    ],
+    'starter' => [
+        'nome' => 'Básico', 
+        'icon' => '💼', 
+        'color' => 'primary',
+        'descricao' => 'Para iniciantes'
+    ],
+    'pro' => [
+        'nome' => 'Profissional', 
+        'icon' => '🚀', 
+        'color' => 'success',
+        'descricao' => 'Para empresas estabelecidas'
+    ],
+    'business' => [
+        'nome' => 'Profissional', 
+        'icon' => '🚀', 
+        'color' => 'success',
+        'descricao' => 'Para empresas estabelecidas'
+    ] // compatibilidade
 ];
 
 $planoInfo = $planosInfo[$planoAtualKey] ?? $planosInfo['trial'];
@@ -93,9 +113,9 @@ $planoInfo = $planosInfo[$planoAtualKey] ?? $planosInfo['trial'];
                     <?php endif; ?>
 
                     <ul class="list-unstyled mb-0">
-                        <li class="mb-2"><i class="bi bi-check-circle text-success"></i> <?= $limiteOS == -1 ? 'OS ilimitadas' : $limiteOS . ' OS/mês' ?></li>
-                        <li class="mb-2"><i class="bi bi-check-circle text-success"></i> <?= $limiteTecnicos == -1 ? 'Técnicos ilimitados' : 'Até ' . $limiteTecnicos . ' técnicos' ?></li>
-                        <li class="mb-2"><i class="bi bi-check-circle text-success"></i> <?= ($empresa['limite_armazenamento_mb'] ?? 100) ?> MB armazenamento</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success"></i> <?= $planoAtual['limite_os'] == -1 ? 'OS ilimitadas' : $planoAtual['limite_os'] . ' OS/mês' ?></li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success"></i> <?= $planoAtual['limite_tecnicos'] == -1 ? 'Técnicos ilimitados' : 'Até ' . $planoAtual['limite_tecnicos'] . ' técnico' . ($planoAtual['limite_tecnicos'] > 1 ? 's' : '') ?></li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success"></i> <?= (int) ($planoAtual['limite_armazenamento'] ?? 0) >= 1024 ? ((float) ($planoAtual['limite_armazenamento'] ?? 0) / 1024) . ' GB' : (int) ($planoAtual['limite_armazenamento'] ?? 0) . ' MB' ?> armazenamento</li>
                         <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Relatórios incluídos</li>
                     </ul>
 
@@ -177,39 +197,72 @@ $planoInfo = $planosInfo[$planoAtualKey] ?? $planosInfo['trial'];
         <div class="card-body">
             <div class="row">
                 <?php foreach (($planosDisponiveis ?? []) as $key => $plano): 
-                    $info = $planosInfo[$key] ?? ['nome' => ($plano['nome'] ?? $key), 'icon' => '⭐', 'color' => 'secondary'];
+                    $info = $planosInfo[$key] ?? ['nome' => ($plano['nome'] ?? $key), 'icon' => '⭐', 'color' => 'secondary', 'descricao' => ''];
                     $isCurrent = $planoAtualKey === $key;
                 ?>
                 <div class="col-md-6 mb-4">
                     <div class="card h-100 <?= $isCurrent ? 'border-' . $info['color'] . ' border-3' : '' ?>">
                         <div class="card-header bg-<?= $info['color'] ?> bg-opacity-10">
-                            <div class="d-flex align-items-center">
-                                <span class="display-6 me-2"><?= $info['icon'] ?></span>
-                                <div>
-                                    <h5 class="mb-0"><?= e($plano['nome'] ?? $info['nome']) ?></h5>
-                                    <?php if ($isCurrent): ?>
-                                    <span class="badge bg-<?= $info['color'] ?>">Plano Atual</span>
-                                    <?php endif; ?>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <span class="display-6 me-2"><?= $info['icon'] ?></span>
+                                    <div>
+                                        <h5 class="mb-0"><?= e($plano['nome'] ?? $info['nome']) ?></h5>
+                                        <small class="text-muted"><?= $info['descricao'] ?? '' ?></small>
+                                    </div>
                                 </div>
+                                <?php if ($isCurrent): ?>
+                                <span class="badge bg-<?= $info['color'] ?> ms-2">Plano Atual</span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="card-body">
+                            <!-- Preço -->
                             <div class="text-center mb-4">
-                                <h2 class="mb-0">R$ <?= number_format((float) ($plano['preco'] ?? 0), 2, ',', '.') ?></h2>
-                                <small class="text-muted">/mês</small>
+                                <?php if ($key === 'trial'): ?>
+                                    <h2 class="mb-0 text-<?= $info['color'] ?>">Grátis</h2>
+                                    <small class="text-muted">15 dias de teste</small>
+                                <?php else: ?>
+                                    <h2 class="mb-0">R$ <?= number_format((float) ($plano['preco'] ?? 0), 2, ',', '.') ?></h2>
+                                    <small class="text-muted">/mês</small>
+                                <?php endif; ?>
                             </div>
                             
+                            <!-- Recursos principais -->
+                            <div class="mb-3 p-3 bg-light rounded">
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <div class="small text-muted">Ordens de Serviço</div>
+                                        <div class="fw-bold"><?= $plano['limite_os'] == -1 ? '∞' : (int) $plano['limite_os'] ?></div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="small text-muted">Técnicos</div>
+                                        <div class="fw-bold"><?= $plano['limite_tecnicos'] == -1 ? '∞' : (int) $plano['limite_tecnicos'] ?></div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="small text-muted">Armazenamento</div>
+                                        <div class="fw-bold"><?= (int) ($plano['limite_armazenamento'] ?? 0) >= 1024 ? ((float) ($plano['limite_armazenamento'] ?? 0) / 1024) . 'GB' : (int) ($plano['limite_armazenamento'] ?? 0) . 'MB' ?></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Lista de recursos -->
                             <ul class="list-group list-group-flush mb-4">
                                 <li class="list-group-item"><i class="bi bi-check-circle text-success me-2"></i> <?= $plano['limite_os'] == -1 ? 'OS ilimitadas' : $plano['limite_os'] . ' OS/mês' ?></li>
-                                <li class="list-group-item"><i class="bi bi-check-circle text-success me-2"></i> <?= $plano['limite_tecnicos'] == -1 ? 'Técnicos ilimitados' : 'Até ' . $plano['limite_tecnicos'] . ' técnicos' ?></li>
+                                <li class="list-group-item"><i class="bi bi-check-circle text-success me-2"></i> <?= $plano['limite_tecnicos'] == -1 ? 'Técnicos ilimitados' : 'Até ' . $plano['limite_tecnicos'] . ' técnico' . ($plano['limite_tecnicos'] > 1 ? 's' : '') ?></li>
                                 <li class="list-group-item"><i class="bi bi-check-circle text-success me-2"></i> <?= (int) ($plano['limite_armazenamento'] ?? 0) >= 1024 ? ((float) ($plano['limite_armazenamento'] ?? 0) / 1024) . ' GB' : (int) ($plano['limite_armazenamento'] ?? 0) . ' MB' ?> armazenamento</li>
                                 <li class="list-group-item"><i class="bi bi-check-circle text-success me-2"></i> Relatórios incluídos</li>
+                                <li class="list-group-item"><i class="bi bi-check-circle text-success me-2"></i> Clientes ilimitados</li>
+                                <?php if ($key !== 'trial'): ?>
                                 <li class="list-group-item"><i class="bi bi-check-circle text-success me-2"></i> Suporte por e-mail</li>
-                                <?php if ($key === 'business'): ?>
-                                <li class="list-group-item"><i class="bi bi-check-circle text-success me-2"></i> Suporte prioritário</li>
+                                <?php endif; ?>
+                                <?php if ($key === 'pro'): ?>
+                                <li class="list-group-item"><i class="bi bi-star-fill text-warning me-2"></i> Suporte prioritário</li>
+                                <li class="list-group-item"><i class="bi bi-star-fill text-warning me-2"></i> Logs do sistema</li>
                                 <?php endif; ?>
                             </ul>
 
+                            <!-- Botão de ação -->
                             <?php if (!$isCurrent): ?>
                             <a class="btn btn-<?= $info['color'] ?> w-100" href="<?= url('assinaturas/efipay-checkout/' . $key) ?>">
                                 <i class="bi bi-credit-card"></i>
@@ -221,9 +274,11 @@ $planoInfo = $planosInfo[$planoAtualKey] ?? $planosInfo['trial'];
                             </button>
                             <?php endif; ?>
                         </div>
+                        
+                        <!-- Destaque para o melhor plano -->
                         <?php if ($key === 'pro'): ?>
                         <div class="card-footer bg-success bg-opacity-10 text-center">
-                            <small class="text-success"><i class="bi bi-lightning"></i> Melhor custo-benefício!</small>
+                            <small class="text-success"><i class="bi bi-lightning-fill"></i> Melhor custo-benefício!</small>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -239,36 +294,122 @@ $planoInfo = $planosInfo[$planoAtualKey] ?? $planosInfo['trial'];
                     </h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-3">Pague 10 meses e leve 12. <strong class="text-success">Economia de 20%!</strong></p>
+                    <p class="text-muted mb-4">Pague por 10 meses e receba 12 meses de acesso. <strong class="text-success">Economia de 20%!</strong></p>
                     
                     <div class="row">
-                        <?php foreach (['starter', 'pro', 'business'] as $k):
+                        <?php foreach (['starter', 'pro'] as $k):
                             $p = $planosDisponiveis[$k] ?? null;
                             if (!$p) continue;
+                            
+                            // Cálculo do desconto anual: 10 meses * preço = valor anual
                             $anual = ((float) ($p['preco'] ?? 0)) * 10;
                             $mensalEq = $anual / 12;
+                            $precoMensalNormal = (float) ($p['preco'] ?? 0);
+                            $economiaTotal = ($precoMensalNormal * 12) - $anual;
+                            
                             $color = ($planosInfo[$k]['color'] ?? 'primary');
                             $label = ($planosInfo[$k]['nome'] ?? ($p['nome'] ?? $k));
                         ?>
-                        <div class="col-md-4 mb-3">
-                            <div class="d-flex align-items-center p-3 bg-light rounded">
-                                <div class="flex-grow-1">
-                                    <span class="text-muted"><?= e($label) ?> Anual</span>
-                                    <h4 class="mb-0 text-<?= $color ?>">R$ <?= number_format($anual, 2, ',', '.') ?></h4>
-                                    <small class="text-muted">R$ <?= number_format($mensalEq, 2, ',', '.') ?>/mês</small>
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-<?= $color ?> bg-<?= $color ?> bg-opacity-5">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-0"><?= e($label) ?> Anual</h6>
+                                            <small class="text-muted">12 meses de acesso</small>
+                                        </div>
+                                        <span class="badge bg-<?= $color ?>">-20%</span>
+                                    </div>
+                                    <div class="mt-3">
+                                        <div class="h5 mb-0 text-<?= $color ?>">R$ <?= number_format($anual, 2, ',', '.') ?></div>
+                                        <small class="text-muted">R$ <?= number_format($mensalEq, 2, ',', '.') ?>/mês equivalente</small>
+                                    </div>
+                                    <hr class="my-2">
+                                    <small class="text-success">💰 Você economiza R$ <?= number_format($economiaTotal, 2, ',', '.') ?> por ano</small>
                                 </div>
-                                <span class="badge bg-success">-20%</span>
                             </div>
                         </div>
                         <?php endforeach; ?>
                     </div>
                     
-                    <div class="text-center mt-2">
-                        <small class="text-muted">
+                    <div class="alert alert-info mt-3 mb-0">
+                        <small class="d-block">
                             <i class="bi bi-info-circle"></i> 
-                            O desconto é aplicado automaticamente na contratação anual
+                            <strong>Como funciona:</strong> Escolha o plano anual na próxima assinatura e aproveite 20% de desconto automaticamente.
                         </small>
                     </div>
+                </div>
+            </div>
+
+            <!-- Tabela Comparativa -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-table"></i> Comparação de Planos</h5>
+                </div>
+                <div class="card-body table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">Recurso</th>
+                                <th class="text-center" width="25%">
+                                    <div class="text-warning">🎁 Trial</div>
+                                    <small class="text-muted d-block">Grátis - 15 dias</small>
+                                </th>
+                                <th class="text-center" width="25%">
+                                    <div class="text-primary">💼 Básico</div>
+                                    <small class="text-muted d-block">R$ 49,90/mês</small>
+                                </th>
+                                <th class="text-center" width="25%">
+                                    <div class="text-success">🚀 Profissional</div>
+                                    <small class="text-muted d-block">R$ 99,90/mês</small>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Ordens de Serviço</strong></td>
+                                <td class="text-center"><span class="badge bg-light text-dark">Ilimitadas</span></td>
+                                <td class="text-center"><span class="badge bg-primary">100/mês</span></td>
+                                <td class="text-center"><span class="badge bg-success">Ilimitadas</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Técnicos</strong></td>
+                                <td class="text-center"><span class="badge bg-light text-dark">Ilimitados</span></td>
+                                <td class="text-center"><span class="badge bg-primary">Até 3</span></td>
+                                <td class="text-center"><span class="badge bg-success">Ilimitados</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Armazenamento</strong></td>
+                                <td class="text-center"><span class="badge bg-light text-dark">5 GB</span></td>
+                                <td class="text-center"><span class="badge bg-primary">1 GB</span></td>
+                                <td class="text-center"><span class="badge bg-success">5 GB</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Clientes</strong></td>
+                                <td class="text-center"><i class="bi bi-check-circle text-success"></i></td>
+                                <td class="text-center"><i class="bi bi-check-circle text-success"></i></td>
+                                <td class="text-center"><i class="bi bi-check-circle text-success"></i></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Relatórios</strong></td>
+                                <td class="text-center"><i class="bi bi-check-circle text-success"></i></td>
+                                <td class="text-center"><i class="bi bi-check-circle text-success"></i></td>
+                                <td class="text-center"><i class="bi bi-check-circle text-success"></i></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Suporte</strong></td>
+                                <td class="text-center"><span class="text-muted">-</span></td>
+                                <td class="text-center"><small>E-mail</small></td>
+                                <td class="text-center"><small><strong>Prioritário</strong></small></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Logs do Sistema</strong></td>
+                                <td class="text-center"><i class="bi bi-x-circle text-danger"></i></td>
+                                <td class="text-center"><i class="bi bi-x-circle text-danger"></i></td>
+                                <td class="text-center"><i class="bi bi-check-circle text-success"></i></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

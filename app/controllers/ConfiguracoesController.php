@@ -218,8 +218,9 @@ class ConfiguracoesController extends Controller
         
         // Dias restantes trial
         $diasTrial = 0;
-        if ($empresa['plano'] === 'trial' && !empty($empresa['data_fim_trial'])) {
+        if (($empresa['plano'] === 'trial' || (empty($empresa['plano']) && !empty($empresa['data_fim_trial']))) && !empty($empresa['data_fim_trial'])) {
             $diasTrial = max(0, (strtotime($empresa['data_fim_trial']) - time()) / 86400);
+            $diasTrial = (int) ceil($diasTrial); // Arredonda para cima para mostrar dia completo
         }
         
         $this->layout('main', [
@@ -243,7 +244,7 @@ class ConfiguracoesController extends Controller
     {
         $novoPlano = $_POST['plano'] ?? '';
         
-        if (!in_array($novoPlano, ['basico', 'profissional'])) {
+        if (!in_array($novoPlano, ['starter', 'pro'])) {
             setFlash('error', 'Plano inválido.');
             $this->redirect('configuracoes/plano');
         }

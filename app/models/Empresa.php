@@ -85,20 +85,20 @@ class Empresa extends Model
     public function getDadosPlano(string $plano): array
     {
         // Planos pagos têm acesso total
-        $planosPagos = ['starter', 'pro', 'business'];
+        $planosPagos = ['starter', 'pro'];
         $isPago = in_array($plano, $planosPagos);
         
         $planos = [
             'trial' => [
                 'nome' => 'Trial',
-                'limite_os' => 20,
-                'limite_tecnicos' => 1,
-                'limite_armazenamento' => 100,
+                'limite_os' => PLANO_TRIAL_OS,
+                'limite_tecnicos' => PLANO_TRIAL_TECNICOS,
+                'limite_armazenamento' => PLANO_TRIAL_ARMAZENAMENTO,
                 'preco' => 0,
                 'pago' => false
             ],
             'starter' => [
-                'nome' => 'Starter',
+                'nome' => 'Básico',
                 'limite_os' => PLANO_STARTER_OS,
                 'limite_tecnicos' => PLANO_STARTER_TECNICOS,
                 'limite_armazenamento' => PLANO_STARTER_ARMAZENAMENTO,
@@ -106,7 +106,7 @@ class Empresa extends Model
                 'pago' => true
             ],
             'pro' => [
-                'nome' => 'Pro',
+                'nome' => 'Profissional',
                 'limite_os' => PLANO_PRO_OS,
                 'limite_tecnicos' => PLANO_PRO_TECNICOS,
                 'limite_armazenamento' => PLANO_PRO_ARMAZENAMENTO,
@@ -114,7 +114,7 @@ class Empresa extends Model
                 'pago' => true
             ],
             'business' => [
-                'nome' => 'Business',
+                'nome' => 'Profissional',
                 'limite_os' => PLANO_BUSINESS_OS,
                 'limite_tecnicos' => PLANO_BUSINESS_TECNICOS,
                 'limite_armazenamento' => PLANO_BUSINESS_ARMAZENAMENTO,

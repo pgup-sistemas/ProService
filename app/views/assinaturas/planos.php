@@ -68,7 +68,10 @@
                             <div class="text-muted small">Ordens de Serviço (mês)</div>
                             <div class="fw-bold">
                                 <?= (int) ($usoOS ?? 0) ?>
-                                <span class="text-muted">/ <?= (int) ($limiteOS ?? 0) ?></span>
+                                <span class="text-muted">/ <?php 
+                                    $lim = (int) ($limiteOS ?? 0);
+                                    echo ($lim <= 0 || $lim > 1000) ? '∞' : $lim;
+                                ?></span>
                             </div>
                         </div>
                         <div class="icon-pill bg-primary bg-opacity-10 text-primary">
@@ -79,7 +82,13 @@
                         <?php
                             $lim = (int) ($limiteOS ?? 0);
                             $uso = (int) ($usoOS ?? 0);
-                            $pct = $lim > 0 ? min(100, ($uso / $lim) * 100) : 0;
+                            // Se ilimitado ou valor inválido, não mostrar progress bar percentual
+                            if ($lim <= 0 || $lim > 1000) {
+                                // Para ilimitado, mostrar progress como 0%
+                                $pct = 0;
+                            } else {
+                                $pct = min(100, ($uso / $lim) * 100);
+                            }
                         ?>
                         <div class="progress-bar" style="width: <?= (int) $pct ?>%"></div>
                     </div>
@@ -94,7 +103,10 @@
                             <div class="text-muted small">Técnicos ativos</div>
                             <div class="fw-bold">
                                 <?= (int) ($totalTecnicos ?? 0) ?>
-                                <span class="text-muted">/ <?= (int) ($limiteTecnicos ?? 0) ?></span>
+                                <span class="text-muted">/ <?php 
+                                    $limTec = (int) ($limiteTecnicos ?? 0);
+                                    echo ($limTec <= 0 || $limTec > 1000) ? '∞' : $limTec;
+                                ?></span>
                             </div>
                         </div>
                         <div class="icon-pill bg-success bg-opacity-10 text-success">

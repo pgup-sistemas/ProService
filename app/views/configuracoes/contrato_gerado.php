@@ -25,11 +25,7 @@ $assinaturaConformidade = $assinaturaModel->getUltima($os['id'], 'conformidade')
         <div class="col-lg-10">
             <!-- Botões de ação -->
             <div class="d-flex justify-content-between mb-3">
-                <div>
-                    <a href="<?= url('ordens/show/' . $os['id']) ?>" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> Voltar para OS
-                    </a>
-                </div>
+                
                 <div class="d-flex gap-2">
                     <button onclick="window.print()" class="btn btn-primary">
                         <i class="bi bi-printer"></i> Imprimir

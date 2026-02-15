@@ -4,6 +4,7 @@
  * Arquivo: /app/services/EmailService.php
  * 
  * Envia e-mails usando SMTP configurado no banco de dados
+ * Compatível com Locaweb, Gmail, Outlook e outros provedores SMTP
  */
 
 namespace App\Services;
@@ -15,6 +16,7 @@ class EmailService
     private array $smtpConfig;
     private string $fromEmail;
     private string $fromName;
+    private ?object $mailer = null;
 
     public function __construct(int $empresaId)
     {
@@ -26,7 +28,7 @@ class EmailService
             'port' => $empresa['smtp_port'] ?? 587,
             'user' => $empresa['smtp_user'] ?? null,
             'pass' => $empresa['smtp_pass'] ?? null,
-            'encryption' => $empresa['smtp_encryption'] ?? 'tls',
+            'encryption' => $empresa['smtp_encryption'] ?? 'TLS',
         ];
         
         $this->fromEmail = $empresa['email'] ?? APP_EMAIL;
@@ -44,20 +46,21 @@ class EmailService
     }
 
     /**
-     * Envia e-mail usando SMTP via PHPMailer ou função mail() nativa
+     * Envia e-mail usando SMTP configurado
      */
     public function send(string $to, string $subject, string $body, bool $isHtml = true): bool
     {
-        // Se não tem SMTP configurado, tenta usar mail() nativo (não recomendado em produção)
         if (!$this->isConfigured()) {
-            return $this->sendViaMail($to, $subject, $body, $isHtml);
+            error_log("EmailService: SMTP não configurado");
+            return false;
         }
 
+        // Usar método SMTP direto (mais confiável que PHPMailer)
         return $this->sendViaSmtp($to, $subject, $body, $isHtml);
     }
 
     /**
-     * Envia via SMTP usando stream_socket_client (não requer biblioteca externa)
+     * Envia via SMTP usando stream_socket_client (método alternativo)
      */
     private function sendViaSmtp(string $to, string $subject, string $body, bool $isHtml): bool
     {
@@ -78,7 +81,7 @@ class EmailService
 
             if (!$socket) {
                 error_log("SMTP Connection failed: {$errstr} ({$errno})");
-                return $this->sendViaMail($to, $subject, $body, $isHtml);
+                return false;
             }
 
             // Leitura da resposta inicial
@@ -89,7 +92,7 @@ class EmailService
             $this->getSmtpResponse($socket);
 
             // STARTTLS se necessário
-            if ($encryption === 'tls') {
+            if ($encryption === 'TLS' || $encryption === 'tls') {
                 fputs($socket, "STARTTLS\r\n");
                 $this->getSmtpResponse($socket);
                 
@@ -151,28 +154,9 @@ class EmailService
 
         } catch (\Exception $e) {
             error_log("SMTP Send Error: " . $e->getMessage());
-            return $this->sendViaMail($to, $subject, $body, $isHtml);
+            $this->logEmail($to, $subject, 'failed');
+            return false;
         }
-    }
-
-    /**
-     * Fallback: envia via função mail() nativa do PHP
-     */
-    private function sendViaMail(string $to, string $subject, string $body, bool $isHtml): bool
-    {
-        $headers = "From: \"{$this->fromName}\" <{$this->fromEmail}>\r\n";
-        $headers .= "Reply-To: {$this->fromEmail}\r\n";
-        
-        if ($isHtml) {
-            $headers .= "MIME-Version: 1.0\r\n";
-            $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        }
-
-        $result = mail($to, $subject, $body, $headers);
-        
-        $this->logEmail($to, $subject, $result ? 'success' : 'failed');
-        
-        return $result;
     }
 
     /**
