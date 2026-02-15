@@ -85,6 +85,38 @@ proService/
    define('DB_PASS', '');
    ```
 
+### Configuração segura (não versionar segredos)
+- Use o arquivo de exemplo `app/config/config.example.php` como modelo e NÃO comite `app/config/config.php`.
+
+- Copiar o exemplo para o arquivo de configuração real:
+  - Linux / macOS:
+    ```bash
+    cp app/config/config.example.php app/config/config.php
+    ```
+  - Windows (PowerShell):
+    ```powershell
+    Copy-Item .\app\config\config.example.php .\app\config\config.php
+    ```
+
+- Preencha `app/config/config.php` com suas credenciais (DB, APP_URL, EFIPAY, certificados, etc.).
+
+- Boas práticas e permissões:
+  - Não armazenar chaves/segredos no Git; `app/config/config.php` já está em `.gitignore`.
+  - Se acidentalmente comitou o arquivo sensível, remova do histórico local rapidamente:
+    ```bash
+    git rm --cached app/config/config.php
+    git commit -m "chore: remove sensitive config.php"
+    git push
+    ```
+  - Garantir permissão de escrita para uploads:
+    - Linux:
+      ```bash
+      sudo chown -R www-data:www-data public/uploads
+      sudo chmod -R 775 public/uploads
+      ```
+    - Windows (IIS/Apache): conceda permissão de escrita ao usuário do serviço web (IUSR / IIS_IUSRS / usuário Apache).
+  - Coloque certificados em `app/certs/` e não os versionar (já ignorado pelo `.gitignore`).
+
 4. Acesse: `http://localhost/proService`
 
 ## 🌐 URLs Principais
