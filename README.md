@@ -116,14 +116,73 @@ proService/
       ```
     - Windows (IIS/Apache): conceda permissão de escrita ao usuário do serviço web (IUSR / IIS_IUSRS / usuário Apache).
   - Coloque certificados em `app/certs/` e não os versionar (já ignorado pelo `.gitignore`).
-  - Processamento assíncrono (import background):
-    - O worker processa arquivos enfileirados em `public/uploads/imports/`.
-    - Linux (cron — a cada minuto):
+
+  - Importação em background (Import Jobs) — documentação rápida:
+
+    O sistema suporta enfileirar imports grandes (CSV / XLSX) para processamento assíncrono por um *worker*.
+
+    - Migração (obrigatório): execute o SQL da migration para criar `import_jobs`:
       ```bash
-      * * * * * cd /c/xampp/htdocs/proService && php scripts/import_worker.php >> /var/log/proservice/import_worker.log 2>&1
+      mysql -u <user> -p proservice < migrations/20260216_create_import_jobs.sql
       ```
-    - Windows: agende `php C:\\xampp\\htdocs\\proService\\scripts\\import_worker.php` no Task Scheduler (repetir cada 1 minuto).
-    - Não esqueça: rode o SQL em `migrations/20260216_create_import_jobs.sql` antes de usar.
+
+    - Onde os arquivos ficam: `public/uploads/imports/` (criado automaticamente ao enfileirar).
+
+    - Como o usuário usa (UI):
+      1. Produtos → Importar (CSV / XLSX).
+      2. Marcar `Processar em background` ou enviar arquivo > 2MB → arquivo será **enfileirado**.
+      3. Acompanhar em Produtos → Jobs de Importação (lista, filtro por status, detalhe e download de logs/resultados).
+
+    - Rotas (autenticadas):
+      - GET  `/produtos/export?format=csv|xlsx` — export
+      - POST `/produtos/import/preview` — preview (CSV/XLSX)
+      - POST `/produtos/import` — import (sync ou enqueue)
+      - GET  `/produtos/import-jobs` — lista jobs
+      - GET  `/produtos/import-jobs/{id}` — detalhe job
+      - GET  `/produtos/import-jobs/{id}/download` — baixar erros / resultado
+      - POST `/produtos/import-jobs/{id}/cancel` — cancelar job pendente
+
+    - Worker CLI e agendamento:
+      - Script: `scripts/import_worker.php` (processa jobs pendentes em lote).
+      - Recomenda-se agendar a cada 1 minuto (cron / Task Scheduler).
+
+        Linux (cron):
+        ```bash
+        * * * * * cd /c/xampp/htdocs/proService && php scripts/import_worker.php >> /var/log/proservice/import_worker.log 2>&1
+        ```
+
+        Windows (Task Scheduler): executar `php C:\\xampp\\htdocs\\proService\\scripts\\import_worker.php` periodicamente.
+
+    - Regras e limites:
+      - Upload sincrono: arquivos pequenos (até 10MB) continuam sendo processados diretamente no request.
+      - Enfileiramento automático: arquivos maiores que 2MB ou quando o usuário marca `Processar em background`.
+      - Tipos aceitos: `.csv`, `.xls`, `.xlsx` (PhpSpreadsheet é usado para XLSX).
+      - Sanitização: prefixo para mitigar CSV-injection; validações numéricas básicas aplicadas.
+
+    - Estados do job: `pending`, `processing`, `completed`, `failed`, `cancelled`.
+      - Resultados e erros são salvos em `result_json` / `error_text` e podem ser baixados na UI.
+
+    - Template mínimo (header CSV/XLSX):
+      ```text
+      codigo_sku,nome,categoria,unidade,quantidade_estoque,quantidade_minima,custo_unitario,preco_venda,fornecedor,observacoes
+      SKU-001,Parafuso M3,Fixação,PC,100,10,0.05,0.10,Fabricante X,Exemplo
+      ```
+
+    - Teste rápido:
+      1. Faça upload de um arquivo pequeno sem marcar background → deve executar imediatamente.
+      2. Faça upload de arquivo grande (>2MB) com background → verifique `/produtos/import-jobs` e acompanhe progresso.
+      3. Abra job com falhas e clique em "Baixar log de erros".
+
+    - Manutenção e boas práticas:
+      - Remover periodicamente arquivos antigos em `public/uploads/imports/` (retention policy).
+      - Monitorar `logs_sistema` e `import_jobs` para falhas frequentes.
+      - Conceder permissões adequadas somente ao usuário do serviço web para `public/uploads/`.
+
+    - Problemas comuns:
+      - PhpSpreadsheet ausente → execute `composer install` (já incluído em `composer.json`).
+      - Worker não agendado → jobs ficam em `pending` até o worker rodar.
+      - Arquivo não encontrado → verifique permissões e existência em `public/uploads/imports/`.
+
 
 4. Acesse: `http://localhost/proService`
 

@@ -892,13 +892,29 @@ class ProdutoController extends Controller
             $filters['q'] = $q;
         }
 
-        $importJobModel = new ImportJob();
-        $paginacao = $importJobModel->filterPaginate($page, 20, $filters, 'created_at DESC');
+        try {
+            $importJobModel = new ImportJob();
+            $paginacao = $importJobModel->filterPaginate($page, 20, $filters, 'created_at DESC');
+
+            $jobs = $paginacao['items'];
+        } catch (\Throwable $e) {
+            error_log('Erro ao listar import jobs: ' . $e->getMessage());
+            // Mensagem amigável e fallback vazio para evitar HTTP 500
+            setFlash('error', 'Não foi possível carregar Import Jobs. Verifique se a tabela `import_jobs` existe e se o banco está acessível.');
+            $jobs = [];
+            $paginacao = [
+                'items' => [],
+                'total' => 0,
+                'page' => $page,
+                'per_page' => 20,
+                'last_page' => 1
+            ];
+        }
 
         $this->layout('main', [
             'titulo' => 'Jobs de Importação',
             'content' => $this->renderView('produtos/import_jobs', [
-                'jobs' => $paginacao['items'],
+                'jobs' => $jobs,
                 'paginacao' => $paginacao,
                 'filter_status' => $status,
                 'filter_q' => $q
@@ -911,19 +927,25 @@ class ProdutoController extends Controller
      */
     public function importJobShow(int $id): void
     {
-        $importJobModel = new ImportJob();
-        $job = $importJobModel->findById($id);
-        if (!$job) {
-            setFlash('error', 'Job não encontrado.');
+        try {
+            $importJobModel = new ImportJob();
+            $job = $importJobModel->findById($id);
+            if (!$job) {
+                setFlash('error', 'Job não encontrado.');
+                $this->redirect('produtos/import-jobs');
+            }
+
+            $this->layout('main', [
+                'titulo' => 'Job #' . $job['id'],
+                'content' => $this->renderView('produtos/import_job_show', [
+                    'job' => $job
+                ])
+            ]);
+        } catch (\Throwable $e) {
+            error_log('Erro importJobShow: ' . $e->getMessage());
+            setFlash('error', 'Erro ao carregar detalhe do job. Verifique logs do servidor.');
             $this->redirect('produtos/import-jobs');
         }
-
-        $this->layout('main', [
-            'titulo' => 'Job #' . $job['id'],
-            'content' => $this->renderView('produtos/import_job_show', [
-                'job' => $job
-            ])
-        ]);
     }
 
     /**
@@ -936,50 +958,62 @@ class ProdutoController extends Controller
             $this->redirect('produtos/import-jobs');
         }
 
-        $importJobModel = new ImportJob();
-        $job = $importJobModel->findById($id);
-        if (!$job) {
-            setFlash('error', 'Job não encontrado.');
+        try {
+            $importJobModel = new ImportJob();
+            $job = $importJobModel->findById($id);
+            if (!$job) {
+                setFlash('error', 'Job não encontrado.');
+                $this->redirect('produtos/import-jobs');
+            }
+
+            if ($job['status'] !== 'pending') {
+                setFlash('error', 'Só é possível cancelar jobs pendentes.');
+                $this->redirect('produtos/import-jobs');
+            }
+
+            $importJobModel->update($id, ['status' => 'cancelled']);
+            setFlash('success', 'Job cancelado.');
+            $this->redirect('produtos/import-jobs');
+        } catch (\Throwable $e) {
+            error_log('Erro importCancel: ' . $e->getMessage());
+            setFlash('error', 'Erro ao cancelar job.');
             $this->redirect('produtos/import-jobs');
         }
-
-        if ($job['status'] !== 'pending') {
-            setFlash('error', 'Só é possível cancelar jobs pendentes.');
-            $this->redirect('produtos/import-jobs');
-        }
-
-        $importJobModel->update($id, ['status' => 'cancelled']);
-        setFlash('success', 'Job cancelado.');
-        $this->redirect('produtos/import-jobs');
     }
     /**
      * Download do log de erros / resultado do job
      */
     public function importJobDownload(int $id): void
     {
-        $importJobModel = new ImportJob();
-        $job = $importJobModel->findById($id);
-        if (!$job) {
-            setFlash('error', 'Job não encontrado.');
+        try {
+            $importJobModel = new ImportJob();
+            $job = $importJobModel->findById($id);
+            if (!$job) {
+                setFlash('error', 'Job não encontrado.');
+                $this->redirect('produtos/import-jobs');
+            }
+
+            if (!empty($job['error_text'])) {
+                header('Content-Type: text/plain; charset=UTF-8');
+                header('Content-Disposition: attachment; filename="import_job_' . $job['id'] . '_errors.txt"');
+                echo $job['error_text'];
+                exit;
+            }
+
+            if (!empty($job['result_json'])) {
+                header('Content-Type: application/json; charset=UTF-8');
+                header('Content-Disposition: attachment; filename="import_job_' . $job['id'] . '_result.json"');
+                echo $job['result_json'];
+                exit;
+            }
+
+            setFlash('error', 'Nenhum log disponível para download.');
+            $this->redirect('produtos/import-jobs/' . $job['id']);
+        } catch (\Throwable $e) {
+            error_log('Erro importJobDownload: ' . $e->getMessage());
+            setFlash('error', 'Erro ao gerar download do log.');
             $this->redirect('produtos/import-jobs');
         }
-
-        if (!empty($job['error_text'])) {
-            header('Content-Type: text/plain; charset=UTF-8');
-            header('Content-Disposition: attachment; filename="import_job_' . $job['id'] . '_errors.txt"');
-            echo $job['error_text'];
-            exit;
-        }
-
-        if (!empty($job['result_json'])) {
-            header('Content-Type: application/json; charset=UTF-8');
-            header('Content-Disposition: attachment; filename="import_job_' . $job['id'] . '_result.json"');
-            echo $job['result_json'];
-            exit;
-        }
-
-        setFlash('error', 'Nenhum log disponível para download.');
-        $this->redirect('produtos/import-jobs/' . $job['id']);
     }
     private function getFormData(bool $includeEstoque): array
     {
