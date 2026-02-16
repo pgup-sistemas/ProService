@@ -46,12 +46,25 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label fw-bold"><i class="bi bi-person-badge"></i> Cliente *</label>
-                            <select name="cliente_id" class="form-select" required>
-                                <option value="">Selecione um cliente...</option>
-                                <?php foreach ($clientes as $c): ?>
-                                <option value="<?= $c['id'] ?>"><?= e($c['nome']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <?php
+                                // Se a lista de clientes foi carregada (base pequena), mostrar select tradicional.
+                                // Caso contrário, exibir um input com autocomplete (server-side).
+                                $useSelect = !empty($clientes) || (isset($totalClientes) && $totalClientes <= 200);
+                            ?>
+
+                            <?php if ($useSelect): ?>
+                                <select name="cliente_id" class="form-select" required>
+                                    <option value="">Selecione um cliente...</option>
+                                    <?php foreach ($clientes as $c): ?>
+                                    <option value="<?= $c['id'] ?>" <?= (isset($selectedClienteId) && $selectedClienteId == $c['id']) ? 'selected' : '' ?>><?= e($c['nome']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php else: ?>
+                                <input type="text" id="cliente_busca" class="form-control" placeholder="Digite o nome do cliente..." autocomplete="off" value="<?= e($selectedCliente['nome'] ?? '') ?>">
+                                <input type="hidden" name="cliente_id" id="cliente_id" value="<?= e($selectedCliente['id'] ?? '') ?>">
+                                <div id="resultados_cliente" class="list-group position-absolute w-100" style="z-index:1000; max-height:200px; overflow-y:auto;"></div>
+                                <div class="form-text">Comece a digitar (mínimo 2 caracteres). Não encontrou? <a href="<?= url('clientes/create') ?>" target="_blank">Criar cliente</a>.</div>
+                            <?php endif; ?>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold"><i class="bi bi-tools"></i> Serviço</label>
@@ -251,6 +264,69 @@
 </form>
 
 <script>
+/* Autocomplete cliente (usa `api/clientes/buscar`) */
+if (document.getElementById('cliente_busca')) {
+    let clienteTimeout;
+    const clienteInput = document.getElementById('cliente_busca');
+    const clienteHidden = document.getElementById('cliente_id');
+    const resultadosCliente = document.getElementById('resultados_cliente');
+
+    clienteInput.addEventListener('input', function() {
+        clearTimeout(clienteTimeout);
+        // limpar seleção quando o usuário digita
+        if (clienteHidden) clienteHidden.value = '';
+        const termo = this.value.trim();
+        if (termo.length < 2) {
+            resultadosCliente.innerHTML = '';
+            return;
+        }
+        clienteTimeout = setTimeout(() => {
+            fetch('<?= url("api/clientes/buscar") ?>?q=' + encodeURIComponent(termo))
+                .then(r => r.json())
+                .then(data => {
+                    if (!Array.isArray(data) || data.length === 0) {
+                        resultadosCliente.innerHTML = '<div class="list-group-item text-muted">Nenhum cliente encontrado</div>';
+                        return;
+                    }
+                    resultadosCliente.innerHTML = data.map(c => `
+                        <button type="button" class="list-group-item list-group-item-action" data-id="${c.id}" data-nome="${c.nome}">
+                            <div class="d-flex justify-content-between">
+                                <span>${c.nome}</span>
+                                <small class="text-muted">${c.telefone || ''}</small>
+                            </div>
+                        </button>
+                    `).join('');
+                })
+                .catch(() => {
+                    resultadosCliente.innerHTML = '<div class="list-group-item text-muted">Erro na busca</div>';
+                });
+        }, 300);
+    });
+
+    resultadosCliente.addEventListener('click', function(e) {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        selecionarCliente(btn.dataset.id, btn.dataset.nome);
+    });
+
+    window.selecionarCliente = function(id, nome) {
+        clienteInput.value = nome;
+        clienteHidden.value = id;
+        resultadosCliente.innerHTML = '';
+    };
+
+    // Validação no submit para garantir que cliente_id esteja preenchido (quando usamos autocomplete)
+    document.getElementById('formOS').addEventListener('submit', function(e) {
+        const selectCliente = document.querySelector('select[name="cliente_id"]');
+        if (!selectCliente && (!clienteHidden.value || clienteHidden.value === '')) {
+            e.preventDefault();
+            alert('Selecione um cliente válido nas sugestões.');
+            clienteInput.focus();
+            return false;
+        }
+    });
+}
+
 // Array para armazenar produtos selecionados
 let produtosOS = [];
 

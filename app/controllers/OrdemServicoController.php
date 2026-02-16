@@ -88,7 +88,7 @@ class OrdemServicoController extends Controller
             $this->redirect('ordens');
         }
         
-        $clientes = $this->clienteModel->findAll(['ativo' => 1], 'nome ASC');
+        // Não carregar todos os clientes quando a base for grande — usar autocomplete no frontend
         $servicos = $this->servicoModel->findAll(['ativo' => 1], 'nome ASC');
         $tecnicos = [];
         if (isAdmin()) {
@@ -103,11 +103,29 @@ class OrdemServicoController extends Controller
             }
         }
         $produtos = $this->produtoModel->findAll(['ativo' => 1], 'nome ASC');
-        
+
+        // Threshold para decidir entre `select` (carregar todos) ou `autocomplete` (server-side)
+        $clienteSelectThreshold = 200;
+        $totalClientes = $this->clienteModel->count(['ativo' => 1]);
+        $clientes = [];
+        $selectedCliente = null;
+        $selectedClienteId = isset($_GET['cliente_id']) ? (int) $_GET['cliente_id'] : null;
+
+        if ($totalClientes <= $clienteSelectThreshold) {
+            // base pequena — carregar lista completa e renderizar <select>
+            $clientes = $this->clienteModel->findAll(['ativo' => 1], 'nome ASC');
+        } elseif ($selectedClienteId) {
+            // base grande, mas há um cliente pré-selecionado via querystring — buscar apenas esse
+            $selectedCliente = $this->clienteModel->findById($selectedClienteId);
+        }
+
         $this->layout('main', [
             'titulo' => 'Nova Ordem de Serviço',
             'content' => $this->renderView('ordens/create', [
                 'clientes' => $clientes,
+                'totalClientes' => $totalClientes,
+                'selectedCliente' => $selectedCliente,
+                'selectedClienteId' => $selectedClienteId,
                 'servicos' => $servicos,
                 'tecnicos' => $tecnicos,
                 'produtos' => $produtos,
