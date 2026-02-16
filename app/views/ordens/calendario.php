@@ -79,15 +79,48 @@ foreach ($ordensPorDia as $osDia) {
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="form-label small text-muted mb-1"><i class="bi bi-people-fill me-1"></i> Cliente</label>
-                    <select name="cliente_id" class="form-select" onchange="this.form.submit()">
-                        <option value="">Todos Clientes</option>
-                        <?php foreach ($clientes as $cliente): ?>
-                        <option value="<?= $cliente['id'] ?>" <?= ($filtros['cliente_id'] ?? '') == $cliente['id'] ? 'selected' : '' ?>>
-                            <?= e(substr($cliente['nome'], 0, 20)) ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <?php $useSelectCal = !empty($clientes) || (isset($totalClientes) && $totalClientes <= 200); ?>
+                    <?php if ($useSelectCal): ?>
+                        <select name="cliente_id" class="form-select" onchange="this.form.submit()">
+                            <option value="">Todos Clientes</option>
+                            <?php foreach ($clientes as $cliente): ?>
+                            <option value="<?= $cliente['id'] ?>" <?= ($filtros['cliente_id'] ?? '') == $cliente['id'] ? 'selected' : '' ?>>
+                                <?= e(substr($cliente['nome'], 0, 20)) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php else: ?>
+                        <input type="text" id="cliente_busca_cal" class="form-control" placeholder="Buscar cliente..." autocomplete="off" value="<?= e($selectedCliente['nome'] ?? '') ?>">
+                        <input type="hidden" name="cliente_id" id="cliente_id_cal" value="<?= e($selectedCliente['id'] ?? ($filtros['cliente_id'] ?? '')) ?>">
+                        <div id="resultados_cliente_cal" class="list-group position-absolute" style="z-index:1000; max-height:200px; overflow-y:auto;"></div>
+                    <?php endif; ?>
                 </div>
+                <script>
+                (function(){
+                    const input = document.getElementById('cliente_busca_cal');
+                    if (!input) return;
+                    const hidden = document.getElementById('cliente_id_cal');
+                    const resultados = document.getElementById('resultados_cliente_cal');
+                    let timeout;
+                    input.addEventListener('input', function(){
+                        clearTimeout(timeout);
+                        hidden.value = '';
+                        const termo = this.value.trim();
+                        if (termo.length < 2) { resultados.innerHTML = ''; return; }
+                        timeout = setTimeout(() => {
+                            fetch('<?= url("api/clientes/buscar") ?>?q=' + encodeURIComponent(termo))
+                                .then(r => r.json())
+                                .then(data => {
+                                    resultados.innerHTML = data.map(c => `\n                                        <button type="button" class="list-group-item list-group-item-action" data-id="${c.id}" data-nome="${c.nome}">${c.nome}</button>\n                                    `).join('');
+                                });
+                        }, 250);
+                    });
+                    resultados.addEventListener('click', function(e){
+                        const btn = e.target.closest('button'); if(!btn) return;
+                        hidden.value = btn.dataset.id; input.value = btn.dataset.nome; resultados.innerHTML = ''; input.form.submit();
+                    });
+                })();
+                </script>
                 <div class="col-6 col-md-3">
                     <label class="form-label small text-muted mb-1"><i class="bi bi-person-badge-fill me-1"></i> Técnico</label>
                     <select name="tecnico_id" class="form-select" onchange="this.form.submit()">

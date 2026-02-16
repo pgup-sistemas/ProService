@@ -36,14 +36,35 @@
                     <option value="normal" <?= ($filtros['prioridade'] ?? '') === 'normal' ? 'selected' : '' ?>>Normal</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <select name="cliente_id" class="form-select">
-                    <option value="">Todos Clientes</option>
-                    <?php foreach ($clientes as $c): ?>
-                    <option value="<?= $c['id'] ?>" <?= ($filtros['cliente_id'] ?? '') == $c['id'] ? 'selected' : '' ?>><?= e($c['nome']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
+            <script>
+            // Autocomplete para filtro de cliente (index)
+            (function(){
+                const input = document.getElementById('cliente_busca_filter');
+                if (!input) return;
+                const hidden = document.getElementById('cliente_id_filter');
+                const resultados = document.getElementById('resultados_cliente_filter');
+                let timeout;
+                input.addEventListener('input', function(){
+                    clearTimeout(timeout);
+                    hidden.value = '';
+                    const termo = this.value.trim();
+                    if (termo.length < 2) { resultados.innerHTML = ''; return; }
+                    timeout = setTimeout(() => {
+                        fetch('<?= url("api/clientes/buscar") ?>?q=' + encodeURIComponent(termo))
+                            .then(r => r.json())
+                            .then(data => {
+                                resultados.innerHTML = data.map(c => `
+                                    <button type="button" class="list-group-item list-group-item-action" data-id="${c.id}" data-nome="${c.nome}">${c.nome} <small class="text-muted">${c.telefone||''}</small></button>
+                                `).join('');
+                            });
+                    }, 250);
+                });
+                resultados.addEventListener('click', function(e){
+                    const btn = e.target.closest('button'); if(!btn) return;
+                    hidden.value = btn.dataset.id; input.value = btn.dataset.nome; resultados.innerHTML = '';
+                });
+            })();
+            </script>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Filtrar</button>
             </div>

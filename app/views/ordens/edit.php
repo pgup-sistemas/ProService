@@ -34,12 +34,21 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label fw-bold"><i class="bi bi-person-badge"></i> Cliente *</label>
-                            <select name="cliente_id" class="form-select" required>
-                                <option value="">Selecione um cliente...</option>
-                                <?php foreach ($clientes as $c): ?>
-                                <option value="<?= $c['id'] ?>" <?= $os['cliente_id'] == $c['id'] ? 'selected' : '' ?>><?= e($c['nome']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <?php $useSelect = !empty($clientes) || (isset($totalClientes) && $totalClientes <= 200); ?>
+
+                            <?php if ($useSelect): ?>
+                                <select name="cliente_id" class="form-select" required>
+                                    <option value="">Selecione um cliente...</option>
+                                    <?php foreach ($clientes as $c): ?>
+                                    <option value="<?= $c['id'] ?>" <?= $os['cliente_id'] == $c['id'] ? 'selected' : '' ?>><?= e($c['nome']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php else: ?>
+                                <input type="text" id="cliente_busca" class="form-control" placeholder="Digite o nome do cliente..." autocomplete="off" value="<?= e($selectedCliente['nome'] ?? '') ?>">
+                                <input type="hidden" name="cliente_id" id="cliente_id" value="<?= e($selectedCliente['id'] ?? $os['cliente_id']) ?>">
+                                <div id="resultados_cliente" class="list-group position-absolute w-100" style="z-index:1000; max-height:200px; overflow-y:auto;"></div>
+                                <div class="form-text">Comece a digitar (mínimo 2 caracteres). Não encontrou? <a href="<?= url('clientes/create') ?>" target="_blank">Criar cliente</a>.</div>
+                            <?php endif; ?>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold"><i class="bi bi-tools"></i> Serviço</label>

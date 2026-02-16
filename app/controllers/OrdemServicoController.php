@@ -60,16 +60,31 @@ class OrdemServicoController extends Controller
         $page = (int) ($_GET['page'] ?? 1);
         
         $resultado = $this->osModel->listar($filtros, 'os.created_at DESC', $page, 20);
-        
-        $clientes = $this->clienteModel->findAll(['ativo' => 1], 'nome ASC');
+
+        // Não carregar lista completa de clientes se houver muitos registros (usar autocomplete)
+        $clienteSelectThreshold = 200;
+        $totalClientes = $this->clienteModel->count(['ativo' => 1]);
+        $clientes = [];
+        $selectedCliente = null;
+        $selectedClienteId = isset($filtros['cliente_id']) ? (int) $filtros['cliente_id'] : null;
+
+        if ($totalClientes <= $clienteSelectThreshold) {
+            $clientes = $this->clienteModel->findAll(['ativo' => 1], 'nome ASC');
+        } elseif ($selectedClienteId) {
+            $selectedCliente = $this->clienteModel->findById($selectedClienteId);
+        }
+
         $tecnicos = $this->usuarioModel->listarTecnicos();
-        
+
         $this->layout('main', [
             'titulo' => 'Ordens de Serviço',
             'content' => $this->renderView('ordens/index', [
                 'ordens' => $resultado['items'],
                 'paginacao' => $resultado,
                 'clientes' => $clientes,
+                'totalClientes' => $totalClientes,
+                'selectedCliente' => $selectedCliente,
+                'selectedClienteId' => $selectedClienteId,
                 'tecnicos' => $tecnicos,
                 'filtros' => $filtros
             ])
@@ -495,7 +510,19 @@ class OrdemServicoController extends Controller
             $this->redirect('ordens/show/' . $id);
         }
         
-        $clientes = $this->clienteModel->findAll(['ativo' => 1], 'nome ASC');
+        // Controlar carregamento de clientes (select vs autocomplete)
+        $clienteSelectThreshold = 200;
+        $totalClientes = $this->clienteModel->count(['ativo' => 1]);
+        $clientes = [];
+        $selectedCliente = null;
+
+        if ($totalClientes <= $clienteSelectThreshold) {
+            $clientes = $this->clienteModel->findAll(['ativo' => 1], 'nome ASC');
+        } else {
+            // base grande — buscar apenas o cliente atual para pré-seleção
+            $selectedCliente = $this->clienteModel->findById($os['cliente_id']);
+        }
+
         $servicos = $this->servicoModel->findAll(['ativo' => 1], 'nome ASC');
         $tecnicos = [];
         if (isAdmin()) {
@@ -511,12 +538,14 @@ class OrdemServicoController extends Controller
         }
         $produtos = $this->produtoModel->findAll(['ativo' => 1], 'nome ASC');
         $produtosOS = $this->osModel->getProdutos($id);
-        
+
         $this->layout('main', [
             'titulo' => 'Editar OS #' . str_pad($os['numero_os'], 4, '0', STR_PAD_LEFT),
             'content' => $this->renderView('ordens/edit', [
                 'os' => $os,
                 'clientes' => $clientes,
+                'totalClientes' => $totalClientes,
+                'selectedCliente' => $selectedCliente,
                 'servicos' => $servicos,
                 'tecnicos' => $tecnicos,
                 'produtos' => $produtos,
@@ -1045,6 +1074,19 @@ class OrdemServicoController extends Controller
         ];
         $nomeMes = $meses[(int)$mes] . ' ' . $ano;
         
+        // Filtro de clientes: usar select apenas para bases pequenas
+        $clienteSelectThreshold = 200;
+        $totalClientes = $this->clienteModel->count(['ativo' => 1]);
+        $clientes = [];
+        $selectedCliente = null;
+        $selectedClienteId = isset($filtros['cliente_id']) ? (int) $filtros['cliente_id'] : null;
+
+        if ($totalClientes <= $clienteSelectThreshold) {
+            $clientes = $this->clienteModel->findAll(['ativo' => 1], 'nome ASC');
+        } elseif ($selectedClienteId) {
+            $selectedCliente = $this->clienteModel->findById($selectedClienteId);
+        }
+
         $this->layout('main', [
             'titulo' => 'Calendário de OS',
             'content' => $this->renderView('ordens/calendario', [
@@ -1057,7 +1099,9 @@ class OrdemServicoController extends Controller
                 'anoProximo' => $anoProximo,
                 'nomeMes' => $nomeMes,
                 'filtros' => $filtros,
-                'clientes' => $this->clienteModel->findAll(['ativo' => 1], 'nome ASC'),
+                'clientes' => $clientes,
+                'totalClientes' => $totalClientes,
+                'selectedCliente' => $selectedCliente,
                 'tecnicos' => $this->usuarioModel->listarTecnicos()
             ])
         ]);
