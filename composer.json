@@ -1,0 +1,14 @@
+{
+  "name": "pageup/proservice",
+  "description": "proService - Gestão de Ordens de Serviço",
+  "type": "project",
+  "require": {
+    "php": ">=7.4",
+    "phpoffice/phpspreadsheet": "^1.30"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    }
+  }
+}

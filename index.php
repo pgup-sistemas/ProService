@@ -7,6 +7,11 @@
 // Definir constante root
 define('PROSERVICE_ROOT', __DIR__);
 
+// Carregar autoload do Composer quando disponível (para libs como PhpSpreadsheet)
+if (file_exists(PROSERVICE_ROOT . '/vendor/autoload.php')) {
+    require_once PROSERVICE_ROOT . '/vendor/autoload.php';
+}
+
 // Carregar autoload e configurações
 require_once PROSERVICE_ROOT . '/app/config/config.php';
 require_once PROSERVICE_ROOT . '/app/config/helpers.php';

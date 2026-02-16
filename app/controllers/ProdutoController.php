@@ -308,6 +308,45 @@ class ProdutoController extends Controller
      */
     public function export(): void
     {
+        $format = strtolower($_GET['format'] ?? 'csv');
+        $produtos = $this->produtoModel->findAll(['ativo' => 1], 'nome ASC');
+        $headers = ['codigo_sku','nome','categoria','unidade','quantidade_estoque','quantidade_minima','custo_unitario','preco_venda','fornecedor','observacoes'];
+
+        if ($format === 'xlsx') {
+            if (!class_exists('\\PhpOffice\\PhpSpreadsheet\\Spreadsheet')) {
+                setFlash('error', 'Biblioteca PhpSpreadsheet não instalada. Execute `composer install` no servidor.');
+                $this->redirect('produtos');
+            }
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->fromArray($headers, null, 'A1');
+
+            $rowIndex = 2;
+            foreach ($produtos as $p) {
+                $sheet->setCellValue('A' . $rowIndex, $p['codigo_sku'] ?? '');
+                $sheet->setCellValue('B' . $rowIndex, $p['nome'] ?? '');
+                $sheet->setCellValue('C' . $rowIndex, $p['categoria'] ?? '');
+                $sheet->setCellValue('D' . $rowIndex, $p['unidade'] ?? '');
+                $sheet->setCellValue('E' . $rowIndex, (float) $p['quantidade_estoque']);
+                $sheet->setCellValue('F' . $rowIndex, (float) $p['quantidade_minima']);
+                $sheet->setCellValue('G' . $rowIndex, (float) $p['custo_unitario']);
+                $sheet->setCellValue('H' . $rowIndex, (float) $p['preco_venda']);
+                $sheet->setCellValue('I' . $rowIndex, $p['fornecedor'] ?? '');
+                $sheet->setCellValue('J' . $rowIndex, $p['observacoes'] ?? '');
+                $rowIndex++;
+            }
+
+            $filename = 'produtos_export_' . date('Ymd_His') . '.xlsx';
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+            exit;
+        }
+
+        // Fallback CSV
         $filename = 'produtos_export_' . date('Ymd_His') . '.csv';
         header('Content-Type: text/csv; charset=UTF-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -315,10 +354,8 @@ class ProdutoController extends Controller
         echo "\xEF\xBB\xBF";
 
         $output = fopen('php://output', 'w');
-        $headers = ['codigo_sku','nome','categoria','unidade','quantidade_estoque','quantidade_minima','custo_unitario','preco_venda','fornecedor','observacoes'];
         fputcsv($output, $headers);
 
-        $produtos = $this->produtoModel->findAll(['ativo' => 1], 'nome ASC');
         foreach ($produtos as $p) {
             $row = [
                 $p['codigo_sku'] ?? '',
@@ -357,6 +394,75 @@ class ProdutoController extends Controller
             return;
         }
 
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $expected = ['codigo_sku','nome','categoria','unidade','quantidade_estoque','quantidade_minima','custo_unitario','preco_venda','fornecedor','observacoes'];
+        $preview = [];
+
+        try {
+            if (in_array($ext, ['xls', 'xlsx'])) {
+                if (!class_exists('\\PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Biblioteca PhpSpreadsheet não instalada. Execute `composer install`.']);
+                    return;
+                }
+
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
+                $sheet = $spreadsheet->getActiveSheet();
+                $rows = $sheet->toArray(null, true, true, false);
+
+                if (count($rows) === 0) {
+                    echo json_encode(['error' => 'Arquivo XLSX vazio ou inválido']);
+                    return;
+                }
+
+                $header = array_shift($rows);
+                $cols = array_map(function($c) { return strtolower(trim((string)$c)); }, $header);
+
+                $line = 1;
+                foreach ($rows as $dataRow) {
+                    if (count($preview) >= 200) break;
+                    $line++;
+                    // mapear colunas
+                    $row = [];
+                    foreach ($cols as $i => $col) {
+                        $val = $dataRow[$i] ?? null;
+                        // normalizar tipos vindos do XLSX
+                        $row[$col] = is_null($val) ? null : (string)$val;
+                    }
+
+                    // Validações simples
+                    $errors = [];
+                    if (empty(trim((string)($row['nome'] ?? '')))) {
+                        $errors[] = 'Nome é obrigatório';
+                    }
+                    if (!empty($row['quantidade_estoque']) && !is_numeric(str_replace([',', '.'], ['', '.'], $row['quantidade_estoque']))) {
+                        $errors[] = 'Quantidade inválida';
+                    }
+                    if (!empty($row['custo_unitario']) && !is_numeric(str_replace([',', '.'], ['', '.'], $row['custo_unitario']))) {
+                        $errors[] = 'Custo unitário inválido';
+                    }
+
+                    $preview[] = [
+                        'line' => $line,
+                        'data' => $row,
+                        'errors' => $errors
+                    ];
+                }
+
+                echo json_encode([
+                    'header' => $cols,
+                    'preview' => $preview,
+                    'expected_columns' => $expected
+                ]);
+                return;
+            }
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Erro ao ler arquivo XLSX: ' . $e->getMessage()]);
+            return;
+        }
+
+        // Fallback para CSV
         $handle = fopen($file['tmp_name'], 'r');
         if ($handle === false) {
             http_response_code(500);
@@ -373,10 +479,8 @@ class ProdutoController extends Controller
 
         // Normalizar cabeçalho
         $cols = array_map(function($c) { return strtolower(trim($c)); }, $header);
-        $expected = ['codigo_sku','nome','categoria','unidade','quantidade_estoque','quantidade_minima','custo_unitario','preco_venda','fornecedor','observacoes'];
 
         // Ler até 200 linhas para preview
-        $preview = [];
         $line = 1;
         while (($data = fgetcsv($handle)) !== false && count($preview) < 200) {
             $line++;
@@ -437,132 +541,283 @@ class ProdutoController extends Controller
             $this->redirect('produtos');
         }
 
-        $handle = fopen($file['tmp_name'], 'r');
-        if ($handle === false) {
-            setFlash('error', 'Não foi possível ler o arquivo.');
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+        // CSV path (default)
+        if (!in_array($ext, ['xls', 'xlsx'])) {
+            $handle = fopen($file['tmp_name'], 'r');
+            if ($handle === false) {
+                setFlash('error', 'Não foi possível ler o arquivo.');
+                $this->redirect('produtos');
+            }
+
+            $header = fgetcsv($handle);
+            $cols = array_map(function($c) { return strtolower(trim($c)); }, $header ?: []);
+
+            $total = 0;
+            $created = 0;
+            $updated = 0;
+            $skipped = 0;
+            $errors = [];
+
+            $db = \App\Config\Database::getInstance();
+            $db->beginTransaction();
+            try {
+                while (($data = fgetcsv($handle)) !== false) {
+                    $total++;
+                    $row = [];
+                    foreach ($cols as $i => $col) {
+                        $row[$col] = isset($data[$i]) ? trim($data[$i]) : null;
+                    }
+
+                    // Sanitização básica (prevenir CSV injection)
+                    foreach ($row as $k => $v) {
+                        if (is_string($v) && preg_match('/^[=\+\-@]/', $v)) {
+                            $row[$k] = "'" . $v; // prefixa com aspas simples
+                        }
+                    }
+
+                    // Validações mínimas
+                    if (empty($row['nome'])) {
+                        $errors[] = [ 'line' => $total+1, 'error' => 'Nome obrigatório' ];
+                        $skipped++;
+                        continue;
+                    }
+
+                    $sku = $row['codigo_sku'] ?? null;
+                    $quantidade = isset($row['quantidade_estoque']) && $row['quantidade_estoque'] !== '' ? floatval(str_replace(',', '.', $row['quantidade_estoque'])) : null;
+                    $custo = isset($row['custo_unitario']) && $row['custo_unitario'] !== '' ? floatval(str_replace(',', '.', $row['custo_unitario'])) : null;
+                    $preco = isset($row['preco_venda']) && $row['preco_venda'] !== '' ? floatval(str_replace(',', '.', $row['preco_venda'])) : null;
+
+                    if ($sku) {
+                        $existing = $this->produtoModel->findBy('codigo_sku', $sku);
+                    } else {
+                        $existing = null;
+                    }
+
+                    $produtoData = [
+                        'nome' => $row['nome'] ?? '',
+                        'categoria' => $row['categoria'] ?? '',
+                        'unidade' => $row['unidade'] ?? 'UN',
+                        'quantidade_minima' => isset($row['quantidade_minima']) ? floatval(str_replace(',', '.', $row['quantidade_minima'])) : 0,
+                        'custo_unitario' => $custo ?? 0,
+                        'preco_venda' => $preco ?? 0,
+                        'fornecedor' => $row['fornecedor'] ?? '',
+                        'observacoes' => $row['observacoes'] ?? ''
+                    ];
+
+                    if ($existing) {
+                        if ($updateExisting) {
+                            // atualizar
+                            $this->produtoModel->update($existing['id'], array_merge($produtoData, ['codigo_sku' => $sku]));
+                            $updated++;
+
+                            // ajustar estoque se informado
+                            if ($quantidade !== null && $quantidade != $existing['quantidade_estoque']) {
+                                $diff = $quantidade - $existing['quantidade_estoque'];
+                                if ($diff > 0) {
+                                    $this->produtoModel->entradaEstoque($existing['id'], $diff, $custo, 'Import CSV');
+                                } else {
+                                    $this->produtoModel->saidaEstoque($existing['id'], abs($diff), 'Import CSV');
+                                }
+                            }
+                        } else {
+                            $skipped++;
+                        }
+                    } else {
+                        if ($createNew) {
+                            // cria novo produto
+                            if ($sku) {
+                                $produtoData['codigo_sku'] = $sku;
+                            }
+                            if ($quantidade !== null) {
+                                $produtoData['quantidade_estoque'] = $quantidade;
+                            } else {
+                                $produtoData['quantidade_estoque'] = 0;
+                            }
+
+                            $newId = $this->produtoModel->create($produtoData);
+                            if ($newId && $quantidade !== null && $quantidade > 0) {
+                                $this->produtoModel->entradaEstoque($newId, $quantidade, $custo, 'Import CSV');
+                            }
+                            $created++;
+                        } else {
+                            $skipped++;
+                        }
+                    }
+                }
+
+                $db->commit();
+
+                // Registrar log no sistema
+                \App\Models\LogSistema::registrar('import_produtos', 'produtos', null, [
+                    'total' => $total,
+                    'created' => $created,
+                    'updated' => $updated,
+                    'skipped' => $skipped,
+                    'errors' => $errors
+                ]);
+
+                $msg = "Import concluído: total={$total}, criados={$created}, atualizados={$updated}, ignorados={$skipped}";
+                if (!empty($errors)) {
+                    $msg .= ' (erros: ' . count($errors) . ')';
+                }
+
+                setFlash('success', $msg);
+                fclose($handle);
+                $this->redirect('produtos');
+            } catch (\Exception $e) {
+                $db->rollBack();
+                fclose($handle);
+                error_log('Erro importando CSV: ' . $e->getMessage());
+                setFlash('error', 'Erro ao processar importação: ' . $e->getMessage());
+                $this->redirect('produtos');
+            }
+
+            return;
+        }
+
+        // XLSX path
+        if (!class_exists('\\PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+            setFlash('error', 'Biblioteca PhpSpreadsheet não instalada. Execute `composer install`.');
             $this->redirect('produtos');
         }
 
-        $header = fgetcsv($handle);
-        $cols = array_map(function($c) { return strtolower(trim($c)); }, $header ?: []);
-
-        $total = 0;
-        $created = 0;
-        $updated = 0;
-        $skipped = 0;
-        $errors = [];
-
-        $db = \App\Config\Database::getInstance();
-        $db->beginTransaction();
         try {
-            while (($data = fgetcsv($handle)) !== false) {
-                $total++;
-                $row = [];
-                foreach ($cols as $i => $col) {
-                    $row[$col] = isset($data[$i]) ? trim($data[$i]) : null;
-                }
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray(null, true, true, false);
 
-                // Sanitização básica (prevenir CSV injection)
-                foreach ($row as $k => $v) {
-                    if (is_string($v) && preg_match('/^[=\+\-@]/', $v)) {
-                        $row[$k] = "'" . $v; // prefixa com aspas simples
+            if (count($rows) === 0) {
+                setFlash('error', 'Arquivo XLSX vazio ou inválido.');
+                $this->redirect('produtos');
+            }
+
+            $header = array_shift($rows);
+            $cols = array_map(function($c) { return strtolower(trim((string)$c)); }, $header ?: []);
+
+            $total = 0;
+            $created = 0;
+            $updated = 0;
+            $skipped = 0;
+            $errors = [];
+
+            $db = \App\Config\Database::getInstance();
+            $db->beginTransaction();
+            try {
+                foreach ($rows as $dataRow) {
+                    $total++;
+                    $row = [];
+                    foreach ($cols as $i => $col) {
+                        $row[$col] = isset($dataRow[$i]) ? trim((string)$dataRow[$i]) : null;
                     }
-                }
 
-                // Validações mínimas
-                if (empty($row['nome'])) {
-                    $errors[] = [ 'line' => $total+1, 'error' => 'Nome obrigatório' ];
-                    $skipped++;
-                    continue;
-                }
+                    // Sanitização básica (prevenir CSV injection)
+                    foreach ($row as $k => $v) {
+                        if (is_string($v) && preg_match('/^[=\+\-@]/', $v)) {
+                            $row[$k] = "'" . $v; // prefixa com aspas simples
+                        }
+                    }
 
-                $sku = $row['codigo_sku'] ?? null;
-                $quantidade = isset($row['quantidade_estoque']) && $row['quantidade_estoque'] !== '' ? floatval(str_replace(',', '.', $row['quantidade_estoque'])) : null;
-                $custo = isset($row['custo_unitario']) && $row['custo_unitario'] !== '' ? floatval(str_replace(',', '.', $row['custo_unitario'])) : null;
-                $preco = isset($row['preco_venda']) && $row['preco_venda'] !== '' ? floatval(str_replace(',', '.', $row['preco_venda'])) : null;
+                    // Validações mínimas
+                    if (empty($row['nome'])) {
+                        $errors[] = [ 'line' => $total+1, 'error' => 'Nome obrigatório' ];
+                        $skipped++;
+                        continue;
+                    }
 
-                if ($sku) {
-                    $existing = $this->produtoModel->findBy('codigo_sku', $sku);
-                } else {
-                    $existing = null;
-                }
+                    $sku = $row['codigo_sku'] ?? null;
+                    $quantidade = isset($row['quantidade_estoque']) && $row['quantidade_estoque'] !== '' ? floatval(str_replace(',', '.', $row['quantidade_estoque'])) : null;
+                    $custo = isset($row['custo_unitario']) && $row['custo_unitario'] !== '' ? floatval(str_replace(',', '.', $row['custo_unitario'])) : null;
+                    $preco = isset($row['preco_venda']) && $row['preco_venda'] !== '' ? floatval(str_replace(',', '.', $row['preco_venda'])) : null;
 
-                $produtoData = [
-                    'nome' => $row['nome'] ?? '',
-                    'categoria' => $row['categoria'] ?? '',
-                    'unidade' => $row['unidade'] ?? 'UN',
-                    'quantidade_minima' => isset($row['quantidade_minima']) ? floatval(str_replace(',', '.', $row['quantidade_minima'])) : 0,
-                    'custo_unitario' => $custo ?? 0,
-                    'preco_venda' => $preco ?? 0,
-                    'fornecedor' => $row['fornecedor'] ?? '',
-                    'observacoes' => $row['observacoes'] ?? ''
-                ];
+                    if ($sku) {
+                        $existing = $this->produtoModel->findBy('codigo_sku', $sku);
+                    } else {
+                        $existing = null;
+                    }
 
-                if ($existing) {
-                    if ($updateExisting) {
-                        // atualizar
-                        $this->produtoModel->update($existing['id'], array_merge($produtoData, ['codigo_sku' => $sku]));
-                        $updated++;
+                    $produtoData = [
+                        'nome' => $row['nome'] ?? '',
+                        'categoria' => $row['categoria'] ?? '',
+                        'unidade' => $row['unidade'] ?? 'UN',
+                        'quantidade_minima' => isset($row['quantidade_minima']) ? floatval(str_replace(',', '.', $row['quantidade_minima'])) : 0,
+                        'custo_unitario' => $custo ?? 0,
+                        'preco_venda' => $preco ?? 0,
+                        'fornecedor' => $row['fornecedor'] ?? '',
+                        'observacoes' => $row['observacoes'] ?? ''
+                    ];
 
-                        // ajustar estoque se informado
-                        if ($quantidade !== null && $quantidade != $existing['quantidade_estoque']) {
-                            $diff = $quantidade - $existing['quantidade_estoque'];
-                            if ($diff > 0) {
-                                $this->produtoModel->entradaEstoque($existing['id'], $diff, $custo, 'Import CSV');
-                            } else {
-                                $this->produtoModel->saidaEstoque($existing['id'], abs($diff), 'Import CSV');
+                    if ($existing) {
+                        if ($updateExisting) {
+                            // atualizar
+                            $this->produtoModel->update($existing['id'], array_merge($produtoData, ['codigo_sku' => $sku]));
+                            $updated++;
+
+                            // ajustar estoque se informado
+                            if ($quantidade !== null && $quantidade != $existing['quantidade_estoque']) {
+                                $diff = $quantidade - $existing['quantidade_estoque'];
+                                if ($diff > 0) {
+                                    $this->produtoModel->entradaEstoque($existing['id'], $diff, $custo, 'Import XLSX');
+                                } else {
+                                    $this->produtoModel->saidaEstoque($existing['id'], abs($diff), 'Import XLSX');
+                                }
                             }
-                        }
-                    } else {
-                        $skipped++;
-                    }
-                } else {
-                    if ($createNew) {
-                        // cria novo produto
-                        if ($sku) {
-                            $produtoData['codigo_sku'] = $sku;
-                        }
-                        if ($quantidade !== null) {
-                            $produtoData['quantidade_estoque'] = $quantidade;
                         } else {
-                            $produtoData['quantidade_estoque'] = 0;
+                            $skipped++;
                         }
-
-                        $newId = $this->produtoModel->create($produtoData);
-                        if ($newId && $quantidade !== null && $quantidade > 0) {
-                            $this->produtoModel->entradaEstoque($newId, $quantidade, $custo, 'Import CSV');
-                        }
-                        $created++;
                     } else {
-                        $skipped++;
+                        if ($createNew) {
+                            // cria novo produto
+                            if ($sku) {
+                                $produtoData['codigo_sku'] = $sku;
+                            }
+                            if ($quantidade !== null) {
+                                $produtoData['quantidade_estoque'] = $quantidade;
+                            } else {
+                                $produtoData['quantidade_estoque'] = 0;
+                            }
+
+                            $newId = $this->produtoModel->create($produtoData);
+                            if ($newId && $quantidade !== null && $quantidade > 0) {
+                                $this->produtoModel->entradaEstoque($newId, $quantidade, $custo, 'Import XLSX');
+                            }
+                            $created++;
+                        } else {
+                            $skipped++;
+                        }
                     }
                 }
+
+                $db->commit();
+
+                // Registrar log no sistema
+                \App\Models\LogSistema::registrar('import_produtos', 'produtos', null, [
+                    'total' => $total,
+                    'created' => $created,
+                    'updated' => $updated,
+                    'skipped' => $skipped,
+                    'errors' => $errors
+                ]);
+
+                $msg = "Import concluído: total={$total}, criados={$created}, atualizados={$updated}, ignorados={$skipped}";
+                if (!empty($errors)) {
+                    $msg .= ' (erros: ' . count($errors) . ')';
+                }
+
+                setFlash('success', $msg);
+                $this->redirect('produtos');
+            } catch (\Exception $e) {
+                $db->rollBack();
+                error_log('Erro importando XLSX: ' . $e->getMessage());
+                setFlash('error', 'Erro ao processar importação: ' . $e->getMessage());
+                $this->redirect('produtos');
             }
 
-            $db->commit();
-
-            // Registrar log no sistema
-            \App\Models\LogSistema::registrar('import_produtos', 'produtos', null, [
-                'total' => $total,
-                'created' => $created,
-                'updated' => $updated,
-                'skipped' => $skipped,
-                'errors' => $errors
-            ]);
-
-            $msg = "Import concluído: total={$total}, criados={$created}, atualizados={$updated}, ignorados={$skipped}";
-            if (!empty($errors)) {
-                $msg .= ' (erros: ' . count($errors) . ')';
-            }
-
-            setFlash('success', $msg);
-            fclose($handle);
-            $this->redirect('produtos');
-        } catch (\Exception $e) {
-            $db->rollBack();
-            fclose($handle);
-            error_log('Erro importando CSV: ' . $e->getMessage());
-            setFlash('error', 'Erro ao processar importação: ' . $e->getMessage());
+            return;
+        } catch (\Throwable $e) {
+            error_log('Erro lendo XLSX: ' . $e->getMessage());
+            setFlash('error', 'Erro ao ler o arquivo XLSX: ' . $e->getMessage());
             $this->redirect('produtos');
         }
     }

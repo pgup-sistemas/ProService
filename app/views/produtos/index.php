@@ -9,11 +9,16 @@
         <a href="<?= url('produtos/create') ?>" class="btn btn-primary">
             <i class="bi bi-plus-lg"></i> Novo Produto
         </a>
-        <a href="<?= url('produtos/export') ?>" class="btn btn-outline-secondary">
-            <i class="bi bi-download"></i> Exportar CSV
-        </a>
+        <div class="btn-group">
+            <a href="<?= url('produtos/export') ?>?format=csv" class="btn btn-outline-secondary">
+                <i class="bi bi-download"></i> Exportar CSV
+            </a>
+            <a href="<?= url('produtos/export') ?>?format=xlsx" class="btn btn-outline-secondary">
+                <i class="bi bi-file-earmark-excel"></i> Exportar XLSX
+            </a>
+        </div>
         <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
-            <i class="bi bi-upload"></i> Importar CSV
+            <i class="bi bi-upload"></i> Importar (CSV / XLSX)
         </button>
     </div>
 </div>
@@ -25,13 +30,13 @@
             <form id="importForm" method="post" enctype="multipart/form-data" action="<?= url('produtos/import') ?>">
                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                 <div class="modal-header">
-                    <h5 class="modal-title">Importar Produtos (CSV)</h5>
+                    <h5 class="modal-title">Importar Produtos (CSV / XLSX)</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Arquivo CSV</label>
-                        <input type="file" name="file" id="importFile" accept=".csv,text/csv" class="form-control" required>
+                        <label class="form-label">Arquivo (.csv ou .xlsx)</label>
+                        <input type="file" name="file" id="importFile" accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" class="form-control" required>
                         <div class="form-text">Use o template padrão. Cabeçalho: codigo_sku,nome,categoria,unidade,quantidade_estoque,quantidade_minima,custo_unitario,preco_venda,fornecedor,observacoes</div>
                     </div>
                     <div class="row g-2 mb-3">
@@ -67,7 +72,7 @@ document.getElementById('btnPreview')?.addEventListener('click', function() {
     const fileInput = document.getElementById('importFile');
     const file = fileInput.files[0];
     if (!file) {
-        alert('Selecione um arquivo CSV para pré-visualizar.');
+        alert('Selecione um arquivo (.csv ou .xlsx) para pré-visualizar.');
         return;
     }
 
