@@ -10,6 +10,26 @@
     </div>
 </div>
 
+<form method="GET" class="row g-2 mb-3">
+    <div class="col-auto">
+        <select name="status" class="form-select">
+            <option value="">Todos os status</option>
+            <option value="pending" <?= (!empty($filter_status) && $filter_status === 'pending') ? 'selected' : '' ?>>Pendente</option>
+            <option value="processing" <?= (!empty($filter_status) && $filter_status === 'processing') ? 'selected' : '' ?>>Processando</option>
+            <option value="completed" <?= (!empty($filter_status) && $filter_status === 'completed') ? 'selected' : '' ?>>Concluído</option>
+            <option value="failed" <?= (!empty($filter_status) && $filter_status === 'failed') ? 'selected' : '' ?>>Falhou</option>
+            <option value="cancelled" <?= (!empty($filter_status) && $filter_status === 'cancelled') ? 'selected' : '' ?>>Cancelado</option>
+        </select>
+    </div>
+    <div class="col">
+        <input type="search" name="q" class="form-control" placeholder="Pesquisar por nome de arquivo" value="<?= e($filter_q ?? '') ?>">
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a href="<?= url('produtos/import-jobs') ?>" class="btn btn-outline-secondary ms-2">Limpar</a>
+    </div>
+</form>
+
 <div class="card">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -64,9 +84,15 @@
     <div class="card-footer">
         <nav aria-label="Paginação">
             <ul class="pagination justify-content-center mb-0">
+                <?php
+                    $extra = [];
+                    if (!empty($filter_status)) $extra['status'] = $filter_status;
+                    if (!empty($filter_q)) $extra['q'] = $filter_q;
+                    $qs = http_build_query($extra);
+                ?>
                 <?php for ($i = 1; $i <= $paginacao['last_page']; $i++): ?>
                 <li class="page-item <?= $i === $paginacao['page'] ? 'active' : '' ?>">
-                    <a class="page-link" href="<?= url('produtos/import-jobs?page=' . $i) ?>"><?= $i ?></a>
+                    <a class="page-link" href="<?= url('produtos/import-jobs?page=' . $i . ($qs ? '&' . $qs : '')) ?>"><?= $i ?></a>
                 </li>
                 <?php endfor; ?>
             </ul>

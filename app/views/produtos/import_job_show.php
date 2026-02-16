@@ -22,7 +22,14 @@
                 <p><strong>Iniciado em:</strong> <?= $job['started_at'] ?? '-' ?></p>
                 <p><strong>Finalizado em:</strong> <?= $job['finished_at'] ?? '-' ?></p>
                 <?php if (!empty($job['stored_path'])): ?>
-                    <p><a href="<?= APP_URL . '/public/uploads/imports/' . basename($job['stored_path']) ?>" target="_blank" class="btn btn-sm btn-outline-secondary">Baixar arquivo</a></p>
+                    <p>
+                        <a href="<?= APP_URL . '/public/uploads/imports/' . basename($job['stored_path']) ?>" target="_blank" class="btn btn-sm btn-outline-secondary">Baixar arquivo</a>
+                        <?php if (!empty($job['error_text'])): ?>
+                            <a href="<?= url('produtos/import-jobs/' . $job['id'] . '/download') ?>" class="btn btn-sm btn-outline-danger ms-2">Baixar log de erros</a>
+                        <?php elseif (!empty($job['result_json'])): ?>
+                            <a href="<?= url('produtos/import-jobs/' . $job['id'] . '/download') ?>" class="btn btn-sm btn-outline-success ms-2">Baixar resultado (JSON)</a>
+                        <?php endif; ?>
+                    </p>
                 <?php endif; ?>
             </div>
         </div>

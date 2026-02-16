@@ -139,6 +139,7 @@ $router->post('produtos/import', ['ProdutoController', 'import'], 'AuthMiddlewar
 // Import jobs (background processing)
 $router->get('produtos/import-jobs', ['ProdutoController', 'importJobs'], 'AuthMiddleware');
 $router->get('produtos/import-jobs/{id}', ['ProdutoController', 'importJobShow'], 'AuthMiddleware');
+$router->get('produtos/import-jobs/{id}/download', ['ProdutoController', 'importJobDownload'], 'AuthMiddleware');
 $router->post('produtos/import-jobs/{id}/cancel', ['ProdutoController', 'importCancel'], 'AuthMiddleware');
 
 // Serviços

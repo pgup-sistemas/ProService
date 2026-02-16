@@ -881,14 +881,27 @@ class ProdutoController extends Controller
     public function importJobs(): void
     {
         $page = (int) ($_GET['page'] ?? 1);
+        $status = $_GET['status'] ?? '';
+        $q = trim($_GET['q'] ?? '');
+
+        $filters = [];
+        if ($status !== '') {
+            $filters['status'] = $status;
+        }
+        if ($q !== '') {
+            $filters['q'] = $q;
+        }
+
         $importJobModel = new ImportJob();
-        $paginacao = $importJobModel->paginate($page, 20, [], 'created_at DESC');
+        $paginacao = $importJobModel->filterPaginate($page, 20, $filters, 'created_at DESC');
 
         $this->layout('main', [
             'titulo' => 'Jobs de Importação',
             'content' => $this->renderView('produtos/import_jobs', [
                 'jobs' => $paginacao['items'],
-                'paginacao' => $paginacao
+                'paginacao' => $paginacao,
+                'filter_status' => $status,
+                'filter_q' => $q
             ])
         ]);
     }
@@ -939,7 +952,35 @@ class ProdutoController extends Controller
         setFlash('success', 'Job cancelado.');
         $this->redirect('produtos/import-jobs');
     }
+    /**
+     * Download do log de erros / resultado do job
+     */
+    public function importJobDownload(int $id): void
+    {
+        $importJobModel = new ImportJob();
+        $job = $importJobModel->findById($id);
+        if (!$job) {
+            setFlash('error', 'Job não encontrado.');
+            $this->redirect('produtos/import-jobs');
+        }
 
+        if (!empty($job['error_text'])) {
+            header('Content-Type: text/plain; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="import_job_' . $job['id'] . '_errors.txt"');
+            echo $job['error_text'];
+            exit;
+        }
+
+        if (!empty($job['result_json'])) {
+            header('Content-Type: application/json; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="import_job_' . $job['id'] . '_result.json"');
+            echo $job['result_json'];
+            exit;
+        }
+
+        setFlash('error', 'Nenhum log disponível para download.');
+        $this->redirect('produtos/import-jobs/' . $job['id']);
+    }
     private function getFormData(bool $includeEstoque): array
     {
         $data = [
