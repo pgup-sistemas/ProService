@@ -5,24 +5,41 @@
         <h4 class="mb-1">Produtos / Estoque</h4>
         <p class="text-muted mb-0">Gerencie seu estoque</p>
     </div>
-    <div class="btn-group">
+    <div class="d-flex align-items-center gap-2">
+        <!-- Novo Produto sempre visível -->
         <a href="<?= url('produtos/create') ?>" class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> Novo Produto
+            <i class="bi bi-plus-lg"></i> <span class="d-none d-sm-inline">Novo Produto</span>
         </a>
-        <div class="btn-group">
+
+        <!-- Botões visíveis em telas médias/maiores -->
+        <div class="btn-group d-none d-sm-inline-flex" role="group" aria-label="Ações produtos">
             <a href="<?= url('produtos/export') ?>?format=csv" class="btn btn-outline-secondary">
                 <i class="bi bi-download"></i> Exportar CSV
             </a>
             <a href="<?= url('produtos/export') ?>?format=xlsx" class="btn btn-outline-secondary">
                 <i class="bi bi-file-earmark-excel"></i> Exportar XLSX
             </a>
+            <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="bi bi-upload"></i> Importar
+            </button>
+            <a href="<?= url('produtos/import-jobs') ?>" class="btn btn-outline-info">
+                <i class="bi bi-list-check"></i> Jobs
+            </a>
         </div>
-        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
-            <i class="bi bi-upload"></i> Importar (CSV / XLSX)
-        </button>
-        <a href="<?= url('produtos/import-jobs') ?>" class="btn btn-outline-info ms-2">
-            <i class="bi bi-list-check"></i> Jobs
-        </a>
+
+        <!-- Dropdown compacto para telas pequenas -->
+        <div class="dropdown d-inline-block d-sm-none">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="produtosActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-list"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="produtosActionsDropdown">
+                <li><a class="dropdown-item" href="<?= url('produtos/create') ?>"><i class="bi bi-plus-lg me-2"></i>Novo Produto</a></li>
+                <li><a class="dropdown-item" href="<?= url('produtos/export') ?>?format=csv"><i class="bi bi-download me-2"></i>Exportar CSV</a></li>
+                <li><a class="dropdown-item" href="<?= url('produtos/export') ?>?format=xlsx"><i class="bi bi-file-earmark-excel me-2"></i>Exportar XLSX</a></li>
+                <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#importModal"><i class="bi bi-upload me-2"></i>Importar</button></li>
+                <li><a class="dropdown-item" href="<?= url('produtos/import-jobs') ?>"><i class="bi bi-list-check me-2"></i>Jobs</a></li>
+            </ul>
+        </div>
     </div>
 </div>
 
