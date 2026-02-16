@@ -5,8 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($titulo ?? APP_NAME) ?></title>
     <link rel="icon" type="image/svg+xml" href="<?= asset('favicon.svg') ?>">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-cdn-css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <script>
+    // Fallback CSS: se o Bootstrap não for detectado (ex.: CDN bloqueado), tentar carregar um CDN alternativo.
+    (function ensureBootstrapCssFallback() {
+        function isBootstrapApplied() {
+            try {
+                var el = document.createElement('div');
+                el.className = 'd-none';
+                document.documentElement.appendChild(el);
+                var applied = window.getComputedStyle(el).display === 'none';
+                document.documentElement.removeChild(el);
+                return applied;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Checar após um curto timeout para permitir carregamento inicial
+        window.addEventListener('load', function() {
+            if (!isBootstrapApplied()) {
+                // tentar CDN alternativo (Cloudflare)
+                var alt = document.createElement('link');
+                alt.rel = 'stylesheet';
+                alt.href = 'https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.2/css/bootstrap.min.css';
+                alt.onload = function() { console.info('Bootstrap CSS fallback carregado (cdnjs)'); };
+                alt.onerror = function() { console.error('Falha ao carregar fallback de CSS do Bootstrap'); };
+                document.head.appendChild(alt);
+            }
+        });
+    })();
+    </script>
     <style>
         :root {
             --primary-color: #1e40af;
