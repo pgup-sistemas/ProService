@@ -899,8 +899,7 @@ class ProdutoController extends Controller
             $jobs = $paginacao['items'];
         } catch (\Throwable $e) {
             error_log('Erro ao listar import jobs: ' . $e->getMessage());
-            // Mensagem amigável e fallback vazio para evitar HTTP 500
-            setFlash('error', 'Não foi possível carregar Import Jobs. Verifique se a tabela `import_jobs` existe e se o banco está acessível.');
+            // fallback silencioso (evita HTTP 500). Mensagem flash removida conforme solicitado.
             $jobs = [];
             $paginacao = [
                 'items' => [],
