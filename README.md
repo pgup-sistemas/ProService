@@ -116,6 +116,14 @@ proService/
       ```
     - Windows (IIS/Apache): conceda permissão de escrita ao usuário do serviço web (IUSR / IIS_IUSRS / usuário Apache).
   - Coloque certificados em `app/certs/` e não os versionar (já ignorado pelo `.gitignore`).
+  - Processamento assíncrono (import background):
+    - O worker processa arquivos enfileirados em `public/uploads/imports/`.
+    - Linux (cron — a cada minuto):
+      ```bash
+      * * * * * cd /c/xampp/htdocs/proService && php scripts/import_worker.php >> /var/log/proservice/import_worker.log 2>&1
+      ```
+    - Windows: agende `php C:\\xampp\\htdocs\\proService\\scripts\\import_worker.php` no Task Scheduler (repetir cada 1 minuto).
+    - Não esqueça: rode o SQL em `migrations/20260216_create_import_jobs.sql` antes de usar.
 
 4. Acesse: `http://localhost/proService`
 

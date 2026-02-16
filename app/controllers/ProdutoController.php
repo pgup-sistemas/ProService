@@ -8,6 +8,7 @@ namespace App\Controllers;
 
 use App\Models\Produto;
 use App\Models\Despesa;
+use App\Models\ImportJob;
 
 class ProdutoController extends Controller
 {
@@ -305,7 +306,7 @@ class ProdutoController extends Controller
 
     /**
      * Exportar produtos como CSV
-     */
+     **/
     public function export(): void
     {
         $format = strtolower($_GET['format'] ?? 'csv');
@@ -534,11 +535,63 @@ class ProdutoController extends Controller
 
         $updateExisting = isset($_POST['update_existing']) ? true : false;
         $createNew = isset($_POST['create_new']) ? true : false;
+        $background = isset($_POST['background']) ? true : false;
 
         $file = $_FILES['file'];
         if ($file['size'] > 10 * 1024 * 1024) {
             setFlash('error', 'Arquivo muito grande (máx 10MB).');
             $this->redirect('produtos');
+        }
+
+        // Se solicitado background (ou arquivo > 2MB), enfileirar para processamento assíncrono
+        if ($background || $file['size'] > 2 * 1024 * 1024) {
+            $importsPath = UPLOAD_PATH . 'imports/';
+            if (!is_dir($importsPath)) {
+                mkdir($importsPath, 0755, true);
+            }
+
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $storedName = 'import_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+            $storedFull = $importsPath . $storedName;
+
+            if (!move_uploaded_file($file['tmp_name'], $storedFull)) {
+                setFlash('error', 'Falha ao mover arquivo para pasta de imports.');
+                $this->redirect('produtos');
+            }
+
+            // contar linhas (tentativa rápida)
+            $totalRows = 0;
+            if (in_array($ext, ['xls','xlsx']) && class_exists('\\PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+                try {
+                    $ss = \PhpOffice\PhpSpreadsheet\IOFactory::load($storedFull);
+                    $sheet = $ss->getActiveSheet();
+                    $totalRows = max(0, $sheet->getHighestDataRow() - 1);
+                } catch (\Throwable $e) {
+                    $totalRows = 0;
+                }
+            } else {
+                if (($h = fopen($storedFull, 'r')) !== false) {
+                    fgetcsv($h);
+                    while (fgetcsv($h) !== false) {
+                        $totalRows++;
+                    }
+                    fclose($h);
+                }
+            }
+
+            $importJobModel = new \App\Models\ImportJob();
+            $jobId = $importJobModel->create([
+                'type' => 'produtos',
+                'original_filename' => $file['name'],
+                'stored_path' => $storedFull,
+                'total_rows' => $totalRows,
+                'status' => 'pending',
+                'user_id' => $_SESSION['user_id'] ?? null
+            ]);
+
+            setFlash('success', 'Arquivo enfileirado para processamento em background. Você pode acompanhar em Jobs de Importação.');
+            $this->redirect('produtos/import-jobs');
+            return;
         }
 
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
@@ -820,6 +873,71 @@ class ProdutoController extends Controller
             setFlash('error', 'Erro ao ler o arquivo XLSX: ' . $e->getMessage());
             $this->redirect('produtos');
         }
+    }
+
+    /**
+     * Lista os jobs de importação (background)
+     */
+    public function importJobs(): void
+    {
+        $page = (int) ($_GET['page'] ?? 1);
+        $importJobModel = new ImportJob();
+        $paginacao = $importJobModel->paginate($page, 20, [], 'created_at DESC');
+
+        $this->layout('main', [
+            'titulo' => 'Jobs de Importação',
+            'content' => $this->renderView('produtos/import_jobs', [
+                'jobs' => $paginacao['items'],
+                'paginacao' => $paginacao
+            ])
+        ]);
+    }
+
+    /**
+     * Mostra detalhe de um job
+     */
+    public function importJobShow(int $id): void
+    {
+        $importJobModel = new ImportJob();
+        $job = $importJobModel->findById($id);
+        if (!$job) {
+            setFlash('error', 'Job não encontrado.');
+            $this->redirect('produtos/import-jobs');
+        }
+
+        $this->layout('main', [
+            'titulo' => 'Job #' . $job['id'],
+            'content' => $this->renderView('produtos/import_job_show', [
+                'job' => $job
+            ])
+        ]);
+    }
+
+    /**
+     * Cancela job pendente
+     */
+    public function importCancel(int $id): void
+    {
+        if (!validateCsrfToken($_POST['csrf_token'] ?? '')) {
+            setFlash('error', 'Token de segurança inválido.');
+            $this->redirect('produtos/import-jobs');
+        }
+
+        $importJobModel = new ImportJob();
+        $job = $importJobModel->findById($id);
+        if (!$job) {
+            setFlash('error', 'Job não encontrado.');
+            $this->redirect('produtos/import-jobs');
+        }
+
+        if ($job['status'] !== 'pending') {
+            setFlash('error', 'Só é possível cancelar jobs pendentes.');
+            $this->redirect('produtos/import-jobs');
+        }
+
+        $importJobModel->update($id, ['status' => 'cancelled']);
+        setFlash('success', 'Job cancelado.');
+        $this->redirect('produtos/import-jobs');
     }
 
     private function getFormData(bool $includeEstoque): array

@@ -20,6 +20,9 @@
         <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
             <i class="bi bi-upload"></i> Importar (CSV / XLSX)
         </button>
+        <a href="<?= url('produtos/import-jobs') ?>" class="btn btn-outline-info ms-2">
+            <i class="bi bi-list-check"></i> Jobs
+        </a>
     </div>
 </div>
 
@@ -50,6 +53,12 @@
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="createNew" name="create_new" checked>
                                 <label class="form-check-label" for="createNew">Criar novos</label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="background" name="background">
+                                <label class="form-check-label" for="background">Processar em background (arquivo grande)</label>
                             </div>
                         </div>
                     </div>
