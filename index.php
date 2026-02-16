@@ -126,6 +126,11 @@ $router->post('produtos/delete/{id}', ['ProdutoController', 'delete'], 'AuthMidd
 $router->post('produtos/entrada/{id}', ['ProdutoController', 'entrada'], 'AuthMiddleware');
 $router->get('api/produtos/buscar', ['ProdutoController', 'buscar'], 'AuthMiddleware');
 
+// Import / Export de Produtos (CSV)
+$router->get('produtos/export', ['ProdutoController', 'export'], 'AuthMiddleware');
+$router->post('produtos/import/preview', ['ProdutoController', 'importPreview'], 'AuthMiddleware');
+$router->post('produtos/import', ['ProdutoController', 'import'], 'AuthMiddleware');
+
 // Serviços
 $router->get('servicos', ['ServicoController', 'index'], 'AuthMiddleware');
 $router->get('servicos/create', ['ServicoController', 'create'], 'AuthMiddleware');

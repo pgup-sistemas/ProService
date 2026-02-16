@@ -5,10 +5,110 @@
         <h4 class="mb-1">Produtos / Estoque</h4>
         <p class="text-muted mb-0">Gerencie seu estoque</p>
     </div>
-    <a href="<?= url('produtos/create') ?>" class="btn btn-primary">
-        <i class="bi bi-plus-lg"></i> Novo Produto
-    </a>
+    <div class="btn-group">
+        <a href="<?= url('produtos/create') ?>" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Novo Produto
+        </a>
+        <a href="<?= url('produtos/export') ?>" class="btn btn-outline-secondary">
+            <i class="bi bi-download"></i> Exportar CSV
+        </a>
+        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#importModal">
+            <i class="bi bi-upload"></i> Importar CSV
+        </button>
+    </div>
 </div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <form id="importForm" method="post" enctype="multipart/form-data" action="<?= url('produtos/import') ?>">
+                <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title">Importar Produtos (CSV)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Arquivo CSV</label>
+                        <input type="file" name="file" id="importFile" accept=".csv,text/csv" class="form-control" required>
+                        <div class="form-text">Use o template padrão. Cabeçalho: codigo_sku,nome,categoria,unidade,quantidade_estoque,quantidade_minima,custo_unitario,preco_venda,fornecedor,observacoes</div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="updateExisting" name="update_existing" checked>
+                                <label class="form-check-label" for="updateExisting">Atualizar existentes por SKU</label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="createNew" name="create_new" checked>
+                                <label class="form-check-label" for="createNew">Criar novos</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="importPreviewArea" style="display:none; max-height:300px; overflow:auto; border:1px solid #eee; padding:8px; border-radius:4px;"></div>
+                    <div id="importPreviewErrors" class="text-danger small mt-2"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btnPreview" class="btn btn-outline-primary">Pré-visualizar</button>
+                    <button type="submit" class="btn btn-success">Confirmar Importar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('btnPreview')?.addEventListener('click', function() {
+    const fileInput = document.getElementById('importFile');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Selecione um arquivo CSV para pré-visualizar.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('<?= url('produtos/import/preview') ?>', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        const area = document.getElementById('importPreviewArea');
+        const errDiv = document.getElementById('importPreviewErrors');
+        area.style.display = 'block';
+        errDiv.textContent = '';
+
+        if (data.error) {
+            area.innerHTML = '';
+            errDiv.textContent = data.error;
+            return;
+        }
+
+        const cols = data.header || [];
+        const rows = data.preview || [];
+        let html = '<table class="table table-sm mb-0"><thead><tr>' + cols.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+        rows.forEach(r => {
+            html += '<tr>' + cols.map(c => '<td>' + (r.data[c] ?? '') + '</td>').join('') + '</tr>';
+            if (r.errors && r.errors.length) {
+                html += '<tr><td colspan="' + cols.length + '" class="text-danger small">Erros: ' + r.errors.join('; ') + '</td></tr>';
+            }
+        });
+        html += '</tbody></table>';
+        area.innerHTML = html;
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Erro ao gerar pré-visualização.');
+    });
+});
+</script>
 
 <?php $flash = getFlash(); ?>
 <?php if ($flash): ?>
